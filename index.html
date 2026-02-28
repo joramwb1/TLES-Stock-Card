@@ -22,14 +22,14 @@
                 <button onclick="showView('history')" class="menu-item" id="btn-logs">📋 Audit Logs</button>
             </div>
             <div class="sidebar-footer">
-                <button onclick="resetDatabase()" class="reset-link">Reset Database</button>
+                <button onclick="resetDatabase()" class="reset-link">⚠ Reset All Data</button>
             </div>
         </nav>
 
         <main class="main-content">
             <section id="view-dashboard" class="view">
                 <header class="content-header">
-                    <div>
+                    <div class="header-titles">
                         <h2>Stockroom Overview</h2>
                         <p id="current-date"></p>
                     </div>
@@ -58,14 +58,14 @@
                             <table id="inventory-table">
                                 <thead>
                                     <tr>
-                                        <th onclick="sortTable('name')">Item Details</th>
+                                        <th onclick="sortTable('name')">Item Details ⇅</th>
                                         <th>Category</th>
-                                        <th onclick="sortTable('qty')">Stock Level</th>
+                                        <th onclick="sortTable('qty')">Stock Level ⇅</th>
                                         <th style="text-align: right;">Manage</th>
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    <tr><td colspan="4" class="loading">Connecting to Cloud...</td></tr>
+                                    <tr><td colspan="4" class="loading">Connecting to TLES Cloud...</td></tr>
                                 </tbody>
                             </table>
                         </div>
@@ -85,7 +85,7 @@
                     <form id="item-form">
                         <input type="hidden" id="edit-id">
                         <div class="form-row">
-                            <div class="form-group"><label>Item Name</label><input type="text" id="item-name" placeholder="e.g. Bond Paper" required></div>
+                            <div class="form-group"><label>Item Name</label><input type="text" id="item-name" required></div>
                             <div class="form-group"><label>Category</label>
                                 <select id="item-category">
                                     <option value="Office Supplies">Office Supplies</option>
@@ -96,26 +96,31 @@
                             </div>
                         </div>
                         <div class="form-row">
-                            <div class="form-group"><label>Specification</label><input type="text" id="item-spec" placeholder="e.g. A4, 70gsm" required></div>
-                            <div class="form-group"><label>UOM (Unit)</label><input type="text" id="item-unit" placeholder="Reams, Pcs, Boxes" required></div>
+                            <div class="form-group"><label>Specification</label><input type="text" id="item-spec" required></div>
+                            <div class="form-group"><label>Unit (UOM)</label><input type="text" id="item-unit" placeholder="Reams/Pcs" required></div>
                         </div>
                         <div class="form-row">
                             <div class="form-group"><label>Current Qty</label><input type="number" id="item-qty" required></div>
-                            <div class="form-group"><label>Alert Threshold</label><input type="number" id="item-min" value="5" required></div>
+                            <div class="form-group"><label>Alert Level</label><input type="number" id="item-min" value="5" required></div>
                         </div>
-                        <button type="submit" class="btn-primary full">Save Item to Inventory</button>
+                        <button type="submit" class="btn-primary full">Save to Cloud</button>
                     </form>
                 </div>
             </section>
 
             <section id="view-history" class="view" style="display:none;">
                 <header class="content-header">
-                    <h2>Audit Logs</h2>
+                    <div class="header-titles">
+                        <h2>Audit Logs</h2>
+                        <p>Detailed transaction history</p>
+                    </div>
                     <button onclick="downloadLogCSV()" class="btn-primary">Download CSV Report</button>
                 </header>
                 <div class="card">
                     <table id="history-table">
-                        <thead><tr><th>Timestamp</th><th>Action Taken</th><th>Personnel/Recipient</th><th>Reason/Purpose</th></tr></thead>
+                        <thead>
+                            <tr><th>Timestamp</th><th>Action Taken</th><th>Recipient</th><th>Purpose</th></tr>
+                        </thead>
                         <tbody></tbody>
                     </table>
                 </div>
@@ -124,7 +129,7 @@
             <section id="view-issue-stock" class="view" style="display:none;">
                 <div class="form-container card">
                     <button onclick="showView('dashboard')" class="back-btn">← Back</button>
-                    <h2>Issue Item</h2>
+                    <h2>Issue Stock</h2>
                     <form id="issue-form">
                         <div class="form-group"><label>Select Item</label><select id="issue-select" required></select></div>
                         <div class="form-row">
