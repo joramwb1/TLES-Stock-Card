@@ -3,143 +3,127 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>TLES Stock Manager</title>
-    <link rel="icon" href="data:,">
+    <title>TLES | Stockroom</title>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
-    <nav class="navbar">
-        <div class="logo-container">
-            <img src="tles.png" alt="TLES Logo" class="school-logo">
-            <div class="logo-text">
-                <span class="school-name">Tanzang Luma ES</span>
-                <span class="app-status">Inventory Beta</span>
-            </div>
-        </div>
-        <div class="nav-links">
-            <button onclick="showView('dashboard')" class="nav-btn">Dashboard</button>
-            <button onclick="showView('history')" class="nav-btn">Audit Logs</button>
-        </div>
-    </nav>
-
-    <div class="container">
-        <section id="view-dashboard" class="view">
-            <div class="header-row">
-                <h2>Stockroom Overview</h2>
-                <div class="action-buttons">
-                    <button onclick="downloadInventoryCSV()" class="btn-restock-sm" style="padding:10px; margin-right:5px;">📥 Export Stock</button>
-                    <button onclick="showView('add-stock')" class="btn-primary">+ Add New Item</button>
-                    <button onclick="showView('issue-stock')" class="btn-issue">- Issue Stock</button>
+    <div class="app-shell">
+        <nav class="sidebar">
+            <div class="sidebar-header">
+                <img src="tles.png" alt="TLES" class="logo-img">
+                <div class="logo-text">
+                    <h1>TLES</h1>
+                    <p>Inventory System</p>
                 </div>
             </div>
+            <div class="sidebar-menu">
+                <button onclick="showView('dashboard')" class="menu-item active" id="btn-dash">📊 Dashboard</button>
+                <button onclick="showView('history')" class="menu-item" id="btn-logs">📋 Audit Logs</button>
+            </div>
+            <div class="sidebar-footer">
+                <button onclick="resetDatabase()" class="reset-link">Reset Database</button>
+            </div>
+        </nav>
 
-            <div class="main-layout">
-                <div class="inventory-content card">
-                    <div class="table-header" style="display:flex; gap:10px; margin-bottom:15px;">
-                        <select id="filter-category" onchange="updateUI()" style="width:200px; margin:0;">
-                            <option value="All">All Categories</option>
-                            <option value="Office Supplies">Office Supplies</option>
-                            <option value="Janitorial">Janitorial</option>
-                            <option value="IT Equipment">IT Equipment</option>
-                            <option value="Others">Others</option>
-                        </select>
-                        <input type="text" id="inventory-search" placeholder="🔍 Search items..." style="margin:0;">
+        <main class="main-content">
+            <section id="view-dashboard" class="view">
+                <header class="content-header">
+                    <div>
+                        <h2>Stockroom Overview</h2>
+                        <p id="current-date"></p>
                     </div>
-                    <table id="inventory-table">
-                        <thead>
-                            <tr>
-                                <th onclick="sortTable('name')">Item Name ⇅</th>
-                                <th>Category</th>
-                                <th onclick="sortTable('qty')">Stock ⇅</th>
-                                <th>Manage</th>
-                            </tr>
-                        </thead>
-                        <tbody><tr><td colspan="4" style="text-align:center">📡 Connecting...</td></tr></tbody>
-                    </table>
-                    <div style="margin-top: 20px;"><button onclick="resetDatabase()" style="background:none; color:#cbd5e1; font-size:0.7rem; border:none; cursor:pointer;">⚠ Reset All Data</button></div>
-                </div>
+                    <div class="header-actions">
+                        <button onclick="downloadInventoryCSV()" class="btn-secondary">Export List</button>
+                        <button onclick="showView('add-stock')" class="btn-primary">+ New Item</button>
+                        <button onclick="showView('issue-stock')" class="btn-accent">- Issue Stock</button>
+                    </div>
+                </header>
 
-                <aside class="activity-sidebar card">
-                    <h3>Recent Activity</h3>
-                    <div id="activity-feed"></div>
-                </aside>
-            </div>
-        </section>
-
-        <section id="view-add-stock" class="view" style="display:none;">
-            <div class="header-row"><button onclick="showView('dashboard')" class="btn-back">← Back</button><h2 id="add-view-title">Item Profile</h2></div>
-            <div class="card">
-                <form id="item-form">
-                    <input type="hidden" id="edit-id" value="">
-                    <div class="input-row">
-                        <div class="input-group"><label>Item Name</label><input type="text" id="item-name" required></div>
-                        <div class="input-group"><label>Category</label>
-                            <select id="item-category">
+                <div class="dashboard-grid">
+                    <div class="inventory-card card">
+                        <div class="card-header">
+                            <div class="search-box">
+                                <input type="text" id="inventory-search" placeholder="Search by name or specs...">
+                            </div>
+                            <select id="filter-category" onchange="updateUI()">
+                                <option value="All">All Categories</option>
                                 <option value="Office Supplies">Office Supplies</option>
                                 <option value="Janitorial">Janitorial</option>
                                 <option value="IT Equipment">IT Equipment</option>
                                 <option value="Others">Others</option>
                             </select>
                         </div>
+                        <div class="table-wrapper">
+                            <table id="inventory-table">
+                                <thead>
+                                    <tr>
+                                        <th onclick="sortTable('name')">Item Details</th>
+                                        <th>Category</th>
+                                        <th onclick="sortTable('qty')">Stock Level</th>
+                                        <th style="text-align: right;">Manage</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr><td colspan="4" class="loading">Connecting to Cloud...</td></tr>
+                                </tbody>
+                            </table>
+                        </div>
                     </div>
-                    <div class="input-row">
-                        <div class="input-group"><label>Specification</label><input type="text" id="item-spec" required></div>
-                        <div class="input-group"><label>Unit (UOM)</label><input type="text" id="item-unit" placeholder="Reams/Pcs" required></div>
-                    </div>
-                    <div class="input-row">
-                        <div class="input-group"><label>Current Quantity</label><input type="number" id="item-qty" required></div>
-                        <div class="input-group"><label>Low Stock Alert Level</label><input type="number" id="item-min" value="5" required></div>
-                    </div>
-                    <button type="submit" class="btn-primary" style="width:100%">Save Item</button>
-                </form>
-            </div>
-        </section>
 
-        <section id="view-history" class="view" style="display:none;">
-            <div class="header-row"><h2>Audit Logs</h2><button onclick="downloadLogCSV()" class="btn-primary">📊 Export Detailed CSV</button></div>
-            <div class="card" style="overflow-x:auto;">
-                <table id="history-table">
-                    <thead><tr><th>Time</th><th>Action</th><th>Recipient</th><th>Purpose</th></tr></thead>
-                    <tbody></tbody>
-                </table>
-            </div>
-        </section>
+                    <aside class="activity-card card">
+                        <h3>Live Feed</h3>
+                        <div id="activity-feed" class="feed-container"></div>
+                    </aside>
+                </div>
+            </section>
 
-        <section id="view-issue-stock" class="view" style="display:none;">
-            <div class="header-row"><button onclick="showView('dashboard')" class="btn-back">← Back</button><h2>Issue Stock</h2></div>
-            <div class="card">
-                <form id="issue-form">
-                    <div class="input-group"><label>Item</label><select id="issue-select" required></select></div>
-                    <div class="input-row">
-                        <div class="input-group"><label>Recipient Name</label><input type="text" id="issue-recipient" required></div>
-                        <div class="input-group"><label>Issued By</label><input type="text" id="issue-releaser" required></div>
-                    </div>
-                    <div class="input-row">
-                        <div class="input-group"><label>Quantity</label><input type="number" id="issue-qty" required></div>
-                        <div class="input-group"><label>Purpose/Project</label><input type="text" id="issue-purpose" required></div>
-                    </div>
-                    <button type="submit" class="btn-issue" style="width:100%">Confirm Issuance</button>
-                </form>
-            </div>
-        </section>
-    </div>
+            <section id="view-add-stock" class="view" style="display:none;">
+                <div class="form-container card">
+                    <button onclick="showView('dashboard')" class="back-btn">← Back to Overview</button>
+                    <h2 id="add-view-title">Register New Item</h2>
+                    <form id="item-form">
+                        <input type="hidden" id="edit-id">
+                        <div class="form-row">
+                            <div class="form-group"><label>Item Name</label><input type="text" id="item-name" placeholder="e.g. Bond Paper" required></div>
+                            <div class="form-group"><label>Category</label>
+                                <select id="item-category">
+                                    <option value="Office Supplies">Office Supplies</option>
+                                    <option value="Janitorial">Janitorial</option>
+                                    <option value="IT Equipment">IT Equipment</option>
+                                    <option value="Others">Others</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="form-row">
+                            <div class="form-group"><label>Specification</label><input type="text" id="item-spec" placeholder="e.g. A4, 70gsm" required></div>
+                            <div class="form-group"><label>UOM (Unit)</label><input type="text" id="item-unit" placeholder="Reams, Pcs, Boxes" required></div>
+                        </div>
+                        <div class="form-row">
+                            <div class="form-group"><label>Current Qty</label><input type="number" id="item-qty" required></div>
+                            <div class="form-group"><label>Alert Threshold</label><input type="number" id="item-min" value="5" required></div>
+                        </div>
+                        <button type="submit" class="btn-primary full">Save Item to Inventory</button>
+                    </form>
+                </div>
+            </section>
 
-    <script type="module">
-        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
-        import { getDatabase, ref, set, push, onValue, update, remove } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
-        const firebaseConfig = {
-            apiKey: "AIzaSyDSwIKdik8L3blJwDFw5TYWhJi2I_Vo9_I",
-            authDomain: "tles-se-and-stock-manager.firebaseapp.com",
-            projectId: "tles-se-and-stock-manager",
-            storageBucket: "tles-se-and-stock-manager.firebasestorage.app",
-            messagingSenderId: "183419608950",
-            appId: "1:183419608950:web:41f41a274465df34e7a457",
-            databaseURL: "https://tles-se-and-stock-manager-default-rtdb.asia-southeast1.firebasedatabase.app/"
-        };
-        const app = initializeApp(firebaseConfig);
-        const db = getDatabase(app);
-        window.fb = { db, ref, set, push, onValue, update, remove };
-    </script>
-    <script src="script.js"></script>
-</body>
-</html>
+            <section id="view-history" class="view" style="display:none;">
+                <header class="content-header">
+                    <h2>Audit Logs</h2>
+                    <button onclick="downloadLogCSV()" class="btn-primary">Download CSV Report</button>
+                </header>
+                <div class="card">
+                    <table id="history-table">
+                        <thead><tr><th>Timestamp</th><th>Action Taken</th><th>Personnel/Recipient</th><th>Reason/Purpose</th></tr></thead>
+                        <tbody></tbody>
+                    </table>
+                </div>
+            </section>
+
+            <section id="view-issue-stock" class="view" style="display:none;">
+                <div class="form-container card">
+                    <button onclick="showView('dashboard')" class="back-btn">← Back</button>
+                    <h2>Issue Item</h2>
+                    <form id="issue-form">
+                        <div class="form-group"><label>Select Item
