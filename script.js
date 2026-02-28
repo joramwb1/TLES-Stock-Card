@@ -1,18 +1,20 @@
 let inventory = [];
 let history = [];
 
-// Initialize Listeners
 function init() {
+    // Safety check for Firebase connection
     if (!window.fb) return setTimeout(init, 500);
 
-    // Sync Inventory from Singapore DB
+    // Sync Inventory Data
     window.fb.onValue(window.fb.ref(window.fb.db, 'inventory'), (snap) => {
         const data = snap.val();
         inventory = data ? Object.keys(data).map(key => ({ id: key, ...data[key] })) : [];
         updateUI();
+    }, (err) => {
+        document.querySelector('#inventory-table tbody').innerHTML = `<tr><td colspan="4" style="color:red">Error: ${err.message}</td></tr>`;
     });
 
-    // Sync History from Singapore DB
+    // Sync History/Logs
     window.fb.onValue(window.fb.ref(window.fb.db, 'history'), (snap) => {
         const data = snap.val();
         history = data ? Object.keys(data).map(key => ({ id: key, ...data[key] })) : [];
@@ -23,14 +25,12 @@ function init() {
 function showView(viewId) {
     document.querySelectorAll('.view').forEach(v => v.style.display = 'none');
     const target = document.getElementById('view-' + viewId);
-    if(target) target.style.display = 'block';
+    if (target) target.style.display = 'block';
 }
 
 function updateUI() {
     const searchTerm = document.getElementById('inventory-search')?.value.toLowerCase() || "";
     const tbody = document.querySelector('#inventory-table tbody');
-    
-    // Safety check: if table body doesn't exist, stop
     if (!tbody) return;
 
     tbody.innerHTML = '';
@@ -39,55 +39,58 @@ function updateUI() {
 
     inventory.forEach(item => {
         const isMatch = item.name.toLowerCase().includes(searchTerm) || item.spec.toLowerCase().includes(searchTerm);
-        
         if (isMatch) {
             filteredCount++;
             totalUnits += parseInt(item.qty || 0);
-            const isLow = item.qty < 10;
+            const isLow = item.qty < 5;
             
             tbody.innerHTML += `
                 <tr>
                     <td><strong>${item.name}</strong></td>
                     <td><small>${item.spec}</small></td>
-                    <td style="${isLow ? 'color:red; font-weight:bold;' : ''}">${item.qty} ${item.unit}</td>
+                    <td style="${isLow ? 'color:red; font-weight:bold;' : ''}">${item.qty} ${item.unit} ${isLow ? '⚠️' : ''}</td>
                     <td>
                         <button class="btn-restock" onclick="quickRestock('${item.id}')">↻ Restock</button>
-                        <button onclick="deleteItem('${item.id}')" style="background:none; border:none; color:red; cursor:pointer; margin-left:10px;">✕</button>
+                        <button onclick="deleteItem('${item.id}')" style="background:none; border:none; color:#cbd5e1; cursor:pointer; margin-left:8px;">✕</button>
                     </td>
                 </tr>`;
         }
     });
 
-    // Safety checks for stat boxes
+    // Update Stats
     const itemStat = document.getElementById('stat-total-items');
     const unitStat = document.getElementById('stat-total-units');
     if (itemStat) itemStat.textContent = filteredCount;
     if (unitStat) unitStat.textContent = totalUnits;
 
-    // Safety check for Activity Feed
+    // Update Sidebar Activity
     const feed = document.getElementById('activity-feed');
     if (feed) {
         feed.innerHTML = '';
         [...history].reverse().slice(0, 10).forEach(log => {
-            feed.innerHTML += `
-                <div style="font-size:0.85rem; padding:8px 0; border-bottom:1px solid #eee;">
-                    <span style="color:#64748b; font-size:0.75rem; display:block;">${log.time}</span>
-                    ${log.msg}
-                </div>`;
+            feed.innerHTML += `<div class="feed-item"><span class="feed-time">${log.time}</span>${log.msg}</div>`;
         });
     }
 
-    // Safety check for Issue Dropdown
+    // Update History Table
+    const histTable = document.querySelector('#history-table tbody');
+    if (histTable) {
+        histTable.innerHTML = '';
+        [...history].reverse().forEach(log => {
+            histTable.innerHTML += `<tr><td>${log.time}</td><td>${log.msg}</td></tr>`;
+        });
+    }
+
+    // Populate Issue Dropdown
     const sel = document.getElementById('issue-select');
     if (sel) {
-        sel.innerHTML = '<option value="">-- Select Item --</option>';
+        sel.innerHTML = '<option value="">-- Choose Item --</option>';
         inventory.forEach(i => {
             if (i.qty > 0) sel.innerHTML += `<option value="${i.id}">${i.name} (${i.spec})</option>`;
         });
     }
 }
 
-// Event Listeners
 document.getElementById('inventory-search')?.addEventListener('input', updateUI);
 
 document.getElementById('item-form')?.addEventListener('submit', function(e) {
@@ -102,11 +105,11 @@ document.getElementById('item-form')?.addEventListener('submit', function(e) {
 
     if (id) {
         window.fb.update(window.fb.ref(window.fb.db, 'inventory/' + id), data);
-        logAction(`Updated ${data.name} details`);
+        logAction(`Updated ${data.name}`);
     } else {
         const newRef = window.fb.push(window.fb.ref(window.fb.db, 'inventory'));
         window.fb.set(newRef, data);
-        logAction(`Added ${data.qty} ${data.unit} of ${data.name}`);
+        logAction(`New stock added: ${data.name} (${data.qty} ${data.unit})`);
     }
     this.reset();
     showView('dashboard');
@@ -120,12 +123,10 @@ document.getElementById('issue-form')?.addEventListener('submit', function(e) {
 
     if (item && item.qty >= qty) {
         window.fb.update(window.fb.ref(window.fb.db, 'inventory/' + id), { qty: item.qty - qty });
-        logAction(`${document.getElementById('issue-releaser').value} issued ${qty} ${item.unit} to ${document.getElementById('issue-recipient').value}`);
+        logAction(`${qty} ${item.unit} of ${item.name} issued to ${document.getElementById('issue-recipient').value}`);
         this.reset();
         showView('dashboard');
-    } else {
-        alert("Check quantity or item selection!");
-    }
+    } else { alert("Insufficient quantity!"); }
 });
 
 function quickRestock(id) {
@@ -137,20 +138,13 @@ function quickRestock(id) {
     document.getElementById('item-spec').value = item.spec;
     document.getElementById('item-unit').value = item.unit;
     document.getElementById('item-qty').focus();
-    document.getElementById('add-view-title').textContent = "Restocking: " + item.name;
 }
 
-function deleteItem(id) {
-    if (confirm("Permanently delete this item?")) {
-        window.fb.remove(window.fb.ref(window.fb.db, 'inventory/' + id));
-    }
-}
+function deleteItem(id) { if (confirm("Delete this item permanently?")) window.fb.remove(window.fb.ref(window.fb.db, 'inventory/' + id)); }
 
 function logAction(msg) {
-    window.fb.push(window.fb.ref(window.fb.db, 'history'), {
-        time: new Date().toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }),
-        msg: msg
-    });
+    const time = new Date().toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+    window.fb.push(window.fb.ref(window.fb.db, 'history'), { time, msg });
 }
 
 init();
