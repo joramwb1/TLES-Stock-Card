@@ -57,13 +57,13 @@ function updateUI() {
         }
     });
 
-    // Detailed Sidebar Feed with Color Coding
+    // Detailed Sidebar Feed with "Name (Spec)" formatting
     const feed = document.getElementById('activity-feed');
     if (feed) {
         feed.innerHTML = '';
         [...history].reverse().slice(0, 15).forEach(log => {
             const isIncrease = log.type === 'plus';
-            const qtyColor = isIncrease ? '#166534' : '#be123c'; // Green for plus, Red for minus
+            const qtyColor = isIncrease ? '#166534' : '#be123c'; 
             const qtySign = isIncrease ? '+' : '-';
 
             feed.innerHTML += `
@@ -71,7 +71,7 @@ function updateUI() {
                     <span class="feed-time">${log.time}</span>
                     <div style="margin-top:4px;">
                         <span style="color:${qtyColor}; font-weight:800; font-size:1.1rem;">${qtySign}${log.amount}</span> 
-                        <strong>${log.itemName}</strong>
+                        <strong>${log.fullItemLabel}</strong>
                     </div>
                     <div style="font-size:0.75rem; color:#64748b; margin-top:2px;">
                         Person: <strong>${log.recipient}</strong><br>
@@ -85,14 +85,17 @@ function updateUI() {
     if(histTbody) {
         histTbody.innerHTML = '';
         [...history].reverse().forEach(log => {
-            histTbody.innerHTML += `<tr><td>${log.time}</td><td>${log.msg}</td><td>${log.recipient}</td><td>${log.purpose}</td></tr>`;
+            histTbody.innerHTML += `<tr><td>${log.time}</td><td>${log.msg}: ${log.fullItemLabel}</td><td>${log.recipient}</td><td>${log.purpose}</td></tr>`;
         });
     }
 
+    // Update Issue Selector with "Name (Spec)" format
     const sel = document.getElementById('issue-select');
     if (sel) {
         sel.innerHTML = '<option value="">-- Choose Item --</option>';
-        inventory.forEach(i => sel.innerHTML += `<option value="${i.id}">${i.name} (${i.qty} left)</option>`);
+        inventory.sort((a,b) => a.name.localeCompare(b.name)).forEach(i => {
+            sel.innerHTML += `<option value="${i.id}">${i.name} (${i.spec}) — ${i.qty} left</option>`;
+        });
     }
 }
 
@@ -110,7 +113,7 @@ function restockItem(id) {
     const addQty = prompt(`Restock ${item.name}: Quantity to add?`);
     if (addQty && !isNaN(addQty)) {
         window.fb.update(window.fb.ref(window.fb.db, 'inventory/' + id), { qty: parseInt(item.qty) + parseInt(addQty) });
-        logAction(`Stock In`, "Supply Office", "New Delivery", addQty, item.name, 'plus');
+        logAction(`Stock In`, "Supply Office", "New Delivery", addQty, item, 'plus');
     }
 }
 
@@ -121,7 +124,7 @@ function returnItem(id) {
         const teacher = prompt("Who returned this?");
         const reason = prompt("Reason for return?");
         window.fb.update(window.fb.ref(window.fb.db, 'inventory/' + id), { qty: parseInt(item.qty) + parseInt(retQty) });
-        logAction(`Stock Return`, teacher, reason, retQty, item.name, 'plus');
+        logAction(`Stock Return`, teacher, reason, retQty, item, 'plus');
     }
 }
 
@@ -154,12 +157,13 @@ document.getElementById('item-form').addEventListener('submit', function(e) {
     e.preventDefault();
     const id = document.getElementById('edit-id').value;
     const name = document.getElementById('item-name').value;
+    const spec = document.getElementById('item-spec').value;
     const qty = parseInt(document.getElementById('item-qty').value);
     
     const data = {
         name: name,
         category: document.getElementById('item-category').value,
-        spec: document.getElementById('item-spec').value,
+        spec: spec,
         unit: document.getElementById('item-unit').value,
         qty: qty,
         min: parseInt(document.getElementById('item-min').value)
@@ -167,11 +171,9 @@ document.getElementById('item-form').addEventListener('submit', function(e) {
 
     if (id) {
         window.fb.update(window.fb.ref(window.fb.db, 'inventory/' + id), data);
-        // No log for simple profile updates as requested
     } else {
         window.fb.set(window.fb.push(window.fb.ref(window.fb.db, 'inventory')), data);
-        // Record log for NEW items
-        logAction(`Initial Stock`, "System", "Inventory Registry", qty, name, 'plus');
+        logAction(`Initial Stock`, "System", "Inventory Registry", qty, data, 'plus');
     }
     showView('dashboard');
 });
@@ -183,22 +185,24 @@ document.getElementById('issue-form').addEventListener('submit', function(e) {
     const item = inventory.find(i => i.id === id);
     if (item && item.qty >= qty) {
         window.fb.update(window.fb.ref(window.fb.db, 'inventory/' + id), { qty: item.qty - qty });
-        logAction(`Stock Out`, document.getElementById('issue-recipient').value, document.getElementById('issue-purpose').value, qty, item.name, 'minus');
+        logAction(`Stock Out`, document.getElementById('issue-recipient').value, document.getElementById('issue-purpose').value, qty, item, 'minus');
         this.reset();
         showView('dashboard');
     } else { alert("Insufficient Stock!"); }
 });
 
-function logAction(msg, rec, purp, amount, itemName, type) {
+function logAction(msg, rec, purp, amount, itemObj, type) {
     const time = new Date().toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+    const fullItemLabel = `${itemObj.name} (${itemObj.spec})`;
+    
     window.fb.push(window.fb.ref(window.fb.db, 'history'), { 
         time, 
         msg, 
         recipient: rec, 
         purpose: purp, 
         amount: amount || 0, 
-        itemName: itemName || "Unknown Item",
-        type: type // 'plus' or 'minus'
+        fullItemLabel: fullItemLabel,
+        type: type 
     });
 }
 
