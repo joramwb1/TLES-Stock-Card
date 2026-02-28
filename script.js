@@ -19,21 +19,6 @@ function init() {
 function showView(viewId) {
     document.querySelectorAll('.view').forEach(v => v.style.display = 'none');
     document.getElementById('view-' + viewId).style.display = 'block';
-    if(viewId === 'add-stock') { 
-        document.getElementById('item-form').reset();
-        document.getElementById('edit-id').value = '';
-        document.getElementById('add-view-title').textContent = "Add New Item";
-    }
-}
-
-function sortTable(key) {
-    sortDir[key] *= -1;
-    inventory.sort((a, b) => {
-        let valA = a[key], valB = b[key];
-        if(key === 'qty') return (valA - valB) * sortDir[key];
-        return valA.localeCompare(valB) * sortDir[key];
-    });
-    updateUI();
 }
 
 function updateUI() {
@@ -47,11 +32,12 @@ function updateUI() {
         tbody.innerHTML += `
             <tr>
                 <td><strong>${item.name}</strong></td>
-                <td>${item.spec}</td>
+                <td><small>${item.spec}</small></td>
                 <td style="${item.qty < 5 ? 'color:red;font-weight:bold':''}">${item.qty} ${item.unit}</td>
                 <td>
-                    <button class="btn-edit" onclick="editItem('${item.id}')">✎ Edit</button>
-                    <button class="btn-delete" onclick="deleteItem('${item.id}')">✕</button>
+                    <button class="btn-restock-sm" onclick="restockItem('${item.id}')">Add Stock</button>
+                    <button class="btn-edit-sm" onclick="editItem('${item.id}')">Edit</button>
+                    <button class="btn-delete-sm" onclick="deleteItem('${item.id}')">Delete</button>
                 </td>
             </tr>`;
     });
@@ -62,9 +48,9 @@ function updateUI() {
     const feed = document.getElementById('activity-feed');
     if (feed) {
         feed.innerHTML = '';
-        [...history].reverse().slice(0, 8).forEach(log => {
-            feed.innerHTML += `<div style="font-size:0.8rem; border-bottom:1px solid #eee; padding:8px 0;">
-                <small style="color:#94a3b8">${log.time}</small><br>${log.msg}</div>`;
+        [...history].reverse().slice(0, 10).forEach(log => {
+            feed.innerHTML += `<div style="font-size:0.8rem; padding:8px 0; border-bottom:1px solid #eee;">
+                <span style="color:#94a3b8; font-size:0.7rem;">${log.time}</span><br>${log.msg}</div>`;
         });
     }
 
@@ -75,8 +61,26 @@ function updateUI() {
             histTbody.innerHTML += `<tr><td>${log.time}</td><td>${log.msg}</td></tr>`;
         });
     }
+
+    const sel = document.getElementById('issue-select');
+    if (sel) {
+        sel.innerHTML = '<option value="">-- Choose Item --</option>';
+        inventory.forEach(i => sel.innerHTML += `<option value="${i.id}">${i.name} (${i.spec})</option>`);
+    }
 }
 
+// 1. QUICK RESTOCK (Only adds to quantity)
+function restockItem(id) {
+    const item = inventory.find(i => i.id === id);
+    const addQty = prompt(`Restocking ${item.name}. How many ${item.unit} are you adding?`, "0");
+    if (addQty && !isNaN(addQty) && parseInt(addQty) > 0) {
+        const newTotal = parseInt(item.qty) + parseInt(addQty);
+        window.fb.update(window.fb.ref(window.fb.db, 'inventory/' + id), { qty: newTotal });
+        logAction(`Restocked ${addQty} ${item.unit} to ${item.name}`);
+    }
+}
+
+// 2. FULL EDIT (Fix typos/details)
 function editItem(id) {
     const item = inventory.find(i => i.id === id);
     showView('add-stock');
@@ -85,7 +89,16 @@ function editItem(id) {
     document.getElementById('item-spec').value = item.spec;
     document.getElementById('item-unit').value = item.unit;
     document.getElementById('item-qty').value = item.qty;
-    document.getElementById('add-view-title').textContent = "Correcting: " + item.name;
+    document.getElementById('add-view-title').textContent = "Edit Item Profile";
+}
+
+// 3. DELETE WITH CONFIRMATION
+function deleteItem(id) {
+    const item = inventory.find(i => i.id === id);
+    if(confirm(`Are you sure you want to PERMANENTLY delete "${item.name}"? This cannot be undone.`)) {
+        window.fb.remove(window.fb.ref(window.fb.db, 'inventory/' + id));
+        logAction(`Deleted item: ${item.name}`);
+    }
 }
 
 document.getElementById('item-form').addEventListener('submit', function(e) {
@@ -108,24 +121,41 @@ document.getElementById('item-form').addEventListener('submit', function(e) {
     showView('dashboard');
 });
 
+document.getElementById('issue-form').addEventListener('submit', function(e) {
+    e.preventDefault();
+    const id = document.getElementById('issue-select').value;
+    const qty = parseInt(document.getElementById('issue-qty').value);
+    const item = inventory.find(i => i.id === id);
+    if (item && item.qty >= qty) {
+        window.fb.update(window.fb.ref(window.fb.db, 'inventory/' + id), { qty: item.qty - qty });
+        logAction(`Issued ${qty} ${item.unit} of ${item.name} to ${document.getElementById('issue-recipient').value}`);
+        this.reset();
+        showView('dashboard');
+    } else { alert("Not enough stock available!"); }
+});
+
+function sortTable(key) {
+    sortDir[key] *= -1;
+    inventory.sort((a, b) => {
+        if(key === 'qty') return (a.qty - b.qty) * sortDir[key];
+        return a.name.localeCompare(b.name) * sortDir[key];
+    });
+    updateUI();
+}
+
 function downloadCSV() {
-    let csv = "Date,Activity\n";
-    history.forEach(log => { csv += `"${log.time}","${log.msg}"\n`; });
+    let csv = "Time,Activity\n";
+    history.forEach(log => csv += `"${log.time}","${log.msg}"\n`);
     const blob = new Blob([csv], { type: 'text/csv' });
     const url = window.URL.createObjectURL(blob);
     const a = document.createElement('a');
-    a.setAttribute('hidden', '');
-    a.setAttribute('href', url);
-    a.setAttribute('download', `TLES_Logs_${new Date().toLocaleDateString()}.csv`);
-    document.body.appendChild(a);
+    a.href = url;
+    a.download = `TLES_StockReport_${new Date().toLocaleDateString()}.csv`;
     a.click();
-    document.body.removeChild(a);
 }
 
-function deleteItem(id) { if(confirm("Delete item?")) window.fb.remove(window.fb.ref(window.fb.db, 'inventory/' + id)); }
-
 function logAction(msg) {
-    const time = new Date().toLocaleString();
+    const time = new Date().toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
     window.fb.push(window.fb.ref(window.fb.db, 'history'), { time, msg });
 }
 
