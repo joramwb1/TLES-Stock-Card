@@ -3,61 +3,63 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Tanzang Luma ES - Stock Manager</title>
-    <link rel="stylesheet" href="style.css">
+    <title>Tanzang Luma ES | Stock Manager</title>
+    <link rel="icon" href="data:,"> <link rel="stylesheet" href="style.css">
 </head>
 <body>
     <nav class="navbar">
         <div class="logo-container">
             <img src="tles.png" alt="TLES Logo" class="school-logo">
             <div class="logo-text">
-                <span class="school-name">Tanzang Luma Elementary School</span>
-                <span class="app-name">Inventory Beta</span>
+                <span class="school-name">Tanzang Luma ES</span>
+                <span class="app-status">Inventory Beta</span>
             </div>
         </div>
         <div class="nav-links">
             <button onclick="showView('dashboard')" class="nav-btn">Dashboard</button>
-            <button onclick="showView('history')" class="nav-btn">Logs</button>
+            <button onclick="showView('history')" class="nav-btn">Full Logs</button>
         </div>
     </nav>
 
     <div class="container">
         <section id="view-dashboard" class="view">
             <div class="header-row">
-                <h2>Stock Overview</h2>
-                <div style="display: flex; gap: 10px;">
-                    <button onclick="showView('add-stock')" class="btn-primary">+ New Entry</button>
-                    <button onclick="showView('issue-stock')" class="btn-issue">- Release Item</button>
+                <h2>Stockroom Overview</h2>
+                <div class="action-buttons">
+                    <button onclick="showView('add-stock')" class="btn-primary">+ Add New Item</button>
+                    <button onclick="showView('issue-stock')" class="btn-issue">- Issue Stock</button>
                 </div>
             </div>
 
             <div class="stats-grid">
                 <div class="stat-card">
-                    <span class="label">ITEM CATEGORIES</span>
+                    <span class="label">Total Item Types</span>
                     <span id="stat-total-items" class="value">0</span>
                 </div>
                 <div class="stat-card">
-                    <span id="stat-total-units" class="value" style="float:right;">0</span>
-                    <span class="label">TOTAL PIECES/REAMS</span>
+                    <span class="label">Total Units on Hand</span>
+                    <span id="stat-total-units" class="value">0</span>
                 </div>
             </div>
 
             <div class="main-layout">
                 <div class="inventory-content card">
-                    <div class="table-header">
+                    <div class="table-controls">
                         <h3>Current Inventory</h3>
-                        <input type="text" id="inventory-search" placeholder="🔍 Search stockroom...">
+                        <input type="text" id="inventory-search" placeholder="🔍 Search by name or spec...">
                     </div>
                     <table id="inventory-table">
                         <thead>
                             <tr>
-                                <th>ITEM NAME</th>
-                                <th>SPECIFICATION</th>
-                                <th>QUANTITY</th>
-                                <th>ACTION</th>
+                                <th>Item Name</th>
+                                <th>Specification</th>
+                                <th>Quantity</th>
+                                <th>Action</th>
                             </tr>
                         </thead>
-                        <tbody></tbody>
+                        <tbody>
+                            <tr><td colspan="4" style="text-align:center">📡 Connecting to TLES Cloud...</td></tr>
+                        </tbody>
                     </table>
                 </div>
 
@@ -68,8 +70,47 @@
             </div>
         </section>
 
-        </div>
-    
-    <script src="script.js"></script>
-</body>
-</html>
+        <section id="view-add-stock" class="view" style="display:none;">
+            <div class="header-row"><button onclick="showView('dashboard')" class="btn-back">← Back</button><h2 id="add-view-title">Add New Item</h2></div>
+            <div class="card">
+                <form id="item-form">
+                    <input type="hidden" id="edit-id" value="">
+                    <div class="input-row">
+                        <div class="input-group"><label>Item Name</label><input type="text" id="item-name" placeholder="e.g. Bond Paper" required></div>
+                        <div class="input-group"><label>Specification</label><input type="text" id="item-spec" placeholder="e.g. A4, 70gsm" required></div>
+                    </div>
+                    <div class="input-row">
+                        <div class="input-group"><label>Unit</label><input type="text" id="item-unit" placeholder="e.g. Reams" required></div>
+                        <div class="input-group"><label>Quantity</label><input type="number" id="item-qty" required></div>
+                    </div>
+                    <button type="submit" class="btn-primary" style="width:100%">Save to Cloud</button>
+                </form>
+            </div>
+        </section>
+
+        <section id="view-issue-stock" class="view" style="display:none;">
+            <div class="header-row"><button onclick="showView('dashboard')" class="btn-back">← Back</button><h2>Issue Stock</h2></div>
+            <div class="card">
+                <form id="issue-form">
+                    <div class="input-group"><label>Select Item</label><select id="issue-select" required></select></div>
+                    <div class="input-row">
+                        <div class="input-group"><label>Recipient (Teacher/Office)</label><input type="text" id="issue-recipient" required></div>
+                        <div class="input-group"><label>Released By</label><input type="text" id="issue-releaser" required></div>
+                    </div>
+                    <div class="input-row">
+                        <div class="input-group"><label>Qty to Release</label><input type="number" id="issue-qty" required></div>
+                        <div class="input-group"><label>Purpose</label><input type="text" id="issue-purpose" required></div>
+                    </div>
+                    <button type="submit" class="btn-issue" style="width:100%">Confirm Release</button>
+                </form>
+            </div>
+        </section>
+
+        <section id="view-history" class="view" style="display:none;">
+            <div class="header-row"><button onclick="showView('dashboard')" class="btn-back">← Back</button><h2>Detailed Activity Logs</h2></div>
+            <div class="card"><table id="history-table"><thead><tr><th>Date/Time</th><th>Action Logged</th></tr></thead><tbody></tbody></table></div>
+        </section>
+    </div>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic
