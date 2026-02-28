@@ -1,6 +1,7 @@
 let inventory = [];
 let history = [];
 let sortDir = { name: 1, qty: 1 };
+const STAFF_PASS = "107979tles";
 
 function init() {
     if (!window.fb) return setTimeout(init, 500);
@@ -35,7 +36,7 @@ function updateUI() {
                 <td><small>${item.spec}</small></td>
                 <td style="${item.qty < 5 ? 'color:red;font-weight:bold':''}">${item.qty} ${item.unit}</td>
                 <td>
-                    <button class="btn-restock-sm" onclick="restockItem('${item.id}')">Add Stock</button>
+                    <button class="btn-restock-sm" onclick="restockItem('${item.id}')">Add</button>
                     <button class="btn-edit-sm" onclick="editItem('${item.id}')">Edit</button>
                     <button class="btn-delete-sm" onclick="deleteItem('${item.id}')">Delete</button>
                 </td>
@@ -69,7 +70,6 @@ function updateUI() {
     }
 }
 
-// 1. QUICK RESTOCK (Only adds to quantity)
 function restockItem(id) {
     const item = inventory.find(i => i.id === id);
     const addQty = prompt(`Restocking ${item.name}. How many ${item.unit} are you adding?`, "0");
@@ -80,7 +80,6 @@ function restockItem(id) {
     }
 }
 
-// 2. FULL EDIT (Fix typos/details)
 function editItem(id) {
     const item = inventory.find(i => i.id === id);
     showView('add-stock');
@@ -92,13 +91,28 @@ function editItem(id) {
     document.getElementById('add-view-title').textContent = "Edit Item Profile";
 }
 
-// 3. DELETE WITH CONFIRMATION
 function deleteItem(id) {
     const item = inventory.find(i => i.id === id);
-    if(confirm(`Are you sure you want to PERMANENTLY delete "${item.name}"? This cannot be undone.`)) {
-        window.fb.remove(window.fb.ref(window.fb.db, 'inventory/' + id));
-        logAction(`Deleted item: ${item.name}`);
-    }
+    const pass = prompt(`Enter Staff Password to delete "${item.name}":`);
+    if (pass === STAFF_PASS) {
+        if(confirm("Are you absolutely sure? This cannot be undone.")) {
+            window.fb.remove(window.fb.ref(window.fb.db, 'inventory/' + id));
+            logAction(`Deleted item: ${item.name}`);
+        }
+    } else if (pass !== null) { alert("Incorrect Password."); }
+}
+
+function resetDatabase() {
+    const pass = prompt("Enter Staff Password to RESET ENTIRE DATABASE:");
+    if (pass === STAFF_PASS) {
+        const confirmName = prompt("Type 'RESET' to confirm final deletion of all inventory and logs:");
+        if (confirmName === "RESET") {
+            window.fb.set(window.fb.ref(window.fb.db, 'inventory'), null);
+            window.fb.set(window.fb.ref(window.fb.db, 'history'), null);
+            logAction("DATABASE FULL RESET PERFORMED");
+            alert("Database cleared.");
+        }
+    } else if (pass !== null) { alert("Incorrect Password."); }
 }
 
 document.getElementById('item-form').addEventListener('submit', function(e) {
@@ -131,7 +145,7 @@ document.getElementById('issue-form').addEventListener('submit', function(e) {
         logAction(`Issued ${qty} ${item.unit} of ${item.name} to ${document.getElementById('issue-recipient').value}`);
         this.reset();
         showView('dashboard');
-    } else { alert("Not enough stock available!"); }
+    } else { alert("Not enough stock!"); }
 });
 
 function sortTable(key) {
@@ -143,14 +157,24 @@ function sortTable(key) {
     updateUI();
 }
 
-function downloadCSV() {
+function downloadInventoryCSV() {
+    let csv = "Item Name,Specification,Quantity,Unit\n";
+    inventory.forEach(i => csv += `"${i.name}","${i.spec}",${i.qty},"${i.unit}"\n`);
+    downloadFile(csv, "TLES_Inventory_List");
+}
+
+function downloadLogCSV() {
     let csv = "Time,Activity\n";
     history.forEach(log => csv += `"${log.time}","${log.msg}"\n`);
-    const blob = new Blob([csv], { type: 'text/csv' });
+    downloadFile(csv, "TLES_Activity_Logs");
+}
+
+function downloadFile(content, fileName) {
+    const blob = new Blob([content], { type: 'text/csv' });
     const url = window.URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `TLES_StockReport_${new Date().toLocaleDateString()}.csv`;
+    a.download = `${fileName}_${new Date().toLocaleDateString()}.csv`;
     a.click();
 }
 
