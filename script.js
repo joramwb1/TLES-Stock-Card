@@ -24,28 +24,36 @@ function showView(viewId) {
 
 function updateUI() {
     const tbody = document.querySelector('#inventory-table tbody');
+    const filterCat = document.getElementById('filter-category').value;
+    const search = document.getElementById('inventory-search').value.toLowerCase();
     if (!tbody) return;
     tbody.innerHTML = '';
-    let totalUnits = 0;
 
     inventory.forEach(item => {
-        totalUnits += parseInt(item.qty || 0);
-        tbody.innerHTML += `
-            <tr>
-                <td><strong>${item.name}</strong></td>
-                <td><small>${item.spec}</small></td>
-                <td style="${item.qty < 5 ? 'color:red;font-weight:bold':''}">${item.qty} ${item.unit}</td>
-                <td>
-                    <button class="btn-restock-sm" onclick="restockItem('${item.id}')">Add</button>
-                    <button class="btn-edit-sm" onclick="editItem('${item.id}')">Edit</button>
-                    <button class="btn-delete-sm" onclick="deleteItem('${item.id}')">Delete</button>
-                </td>
-            </tr>`;
+        const matchesCat = filterCat === "All" || item.category === filterCat;
+        const matchesSearch = item.name.toLowerCase().includes(search) || item.spec.toLowerCase().includes(search);
+        
+        if (matchesCat && matchesSearch) {
+            const isLow = parseInt(item.qty) <= parseInt(item.min || 5);
+            tbody.innerHTML += `
+                <tr class="${isLow ? 'low-stock' : ''}">
+                    <td><strong>${item.name}</strong><br><small>${item.spec}</small></td>
+                    <td><span style="font-size:0.75rem; color:#64748b">${item.category || 'N/A'}</span></td>
+                    <td>
+                        <span style="${isLow ? 'color:var(--danger);font-weight:bold':''}">${item.qty} ${item.unit}</span>
+                        ${isLow ? '<br><span class="low-badge">LOW STOCK</span>' : ''}
+                    </td>
+                    <td>
+                        <button class="btn-restock-sm" onclick="restockItem('${item.id}')">Add</button>
+                        <button class="btn-return-sm" onclick="returnItem('${item.id}')">Return</button>
+                        <button class="btn-edit-sm" onclick="editItem('${item.id}')">Edit</button>
+                        <button class="btn-delete-sm" onclick="deleteItem('${item.id}')">✕</button>
+                    </td>
+                </tr>`;
+        }
     });
 
-    document.getElementById('stat-total-items').textContent = inventory.length;
-    document.getElementById('stat-total-units').textContent = totalUnits;
-
+    // Recent Activity Feed (Brief)
     const feed = document.getElementById('activity-feed');
     if (feed) {
         feed.innerHTML = '';
@@ -55,28 +63,41 @@ function updateUI() {
         });
     }
 
+    // Detailed Audit Log Table
     const histTbody = document.querySelector('#history-table tbody');
     if(histTbody) {
         histTbody.innerHTML = '';
         [...history].reverse().forEach(log => {
-            histTbody.innerHTML += `<tr><td>${log.time}</td><td>${log.msg}</td></tr>`;
+            histTbody.innerHTML += `<tr><td>${log.time}</td><td>${log.msg}</td><td>${log.recipient || '-'}</td><td>${log.purpose || '-'}</td></tr>`;
         });
     }
 
     const sel = document.getElementById('issue-select');
     if (sel) {
-        sel.innerHTML = '<option value="">-- Choose Item --</option>';
+        sel.innerHTML = '<option value="">-- Select Item --</option>';
         inventory.forEach(i => sel.innerHTML += `<option value="${i.id}">${i.name} (${i.spec})</option>`);
     }
 }
 
 function restockItem(id) {
     const item = inventory.find(i => i.id === id);
-    const addQty = prompt(`Restocking ${item.name}. How many ${item.unit} are you adding?`, "0");
-    if (addQty && !isNaN(addQty) && parseInt(addQty) > 0) {
-        const newTotal = parseInt(item.qty) + parseInt(addQty);
-        window.fb.update(window.fb.ref(window.fb.db, 'inventory/' + id), { qty: newTotal });
-        logAction(`Restocked ${addQty} ${item.unit} to ${item.name}`);
+    const addQty = prompt(`Restocking ${item.name}. Qty to add:`, "0");
+    if (addQty && !isNaN(addQty)) {
+        const newQty = parseInt(item.qty) + parseInt(addQty);
+        window.fb.update(window.fb.ref(window.fb.db, 'inventory/' + id), { qty: newQty });
+        logAction(`Restock: +${addQty} units`, "Stockroom", "Procurement");
+    }
+}
+
+function returnItem(id) {
+    const item = inventory.find(i => i.id === id);
+    const retQty = prompt(`Return to Stock: ${item.name}. Qty returned:`, "0");
+    if (retQty && !isNaN(retQty)) {
+        const name = prompt("Returned by (Teacher Name):");
+        const reason = prompt("Reason for return:");
+        const newQty = parseInt(item.qty) + parseInt(retQty);
+        window.fb.update(window.fb.ref(window.fb.db, 'inventory/' + id), { qty: newQty });
+        logAction(`Returned: ${retQty} units`, name, `Return: ${reason}`);
     }
 }
 
@@ -85,34 +106,25 @@ function editItem(id) {
     showView('add-stock');
     document.getElementById('edit-id').value = id;
     document.getElementById('item-name').value = item.name;
+    document.getElementById('item-category').value = item.category || "Others";
     document.getElementById('item-spec').value = item.spec;
     document.getElementById('item-unit').value = item.unit;
     document.getElementById('item-qty').value = item.qty;
-    document.getElementById('add-view-title').textContent = "Edit Item Profile";
+    document.getElementById('item-min').value = item.min || 5;
 }
 
 function deleteItem(id) {
     const item = inventory.find(i => i.id === id);
-    const pass = prompt(`Enter Staff Password to delete "${item.name}":`);
-    if (pass === STAFF_PASS) {
-        if(confirm("Are you absolutely sure? This cannot be undone.")) {
-            window.fb.remove(window.fb.ref(window.fb.db, 'inventory/' + id));
-            logAction(`Deleted item: ${item.name}`);
-        }
-    } else if (pass !== null) { alert("Incorrect Password."); }
+    if (prompt("Staff Password:") === STAFF_PASS) {
+        if(confirm("Delete permanently?")) window.fb.remove(window.fb.ref(window.fb.db, 'inventory/' + id));
+    }
 }
 
 function resetDatabase() {
-    const pass = prompt("Enter Staff Password to RESET ENTIRE DATABASE:");
-    if (pass === STAFF_PASS) {
-        const confirmName = prompt("Type 'RESET' to confirm final deletion of all inventory and logs:");
-        if (confirmName === "RESET") {
-            window.fb.set(window.fb.ref(window.fb.db, 'inventory'), null);
-            window.fb.set(window.fb.ref(window.fb.db, 'history'), null);
-            logAction("DATABASE FULL RESET PERFORMED");
-            alert("Database cleared.");
-        }
-    } else if (pass !== null) { alert("Incorrect Password."); }
+    if (prompt("Staff Password:") === STAFF_PASS && confirm("ERASE EVERYTHING?")) {
+        window.fb.set(window.fb.ref(window.fb.db, 'inventory'), null);
+        window.fb.set(window.fb.ref(window.fb.db, 'history'), null);
+    }
 }
 
 document.getElementById('item-form').addEventListener('submit', function(e) {
@@ -120,17 +132,18 @@ document.getElementById('item-form').addEventListener('submit', function(e) {
     const id = document.getElementById('edit-id').value;
     const data = {
         name: document.getElementById('item-name').value,
+        category: document.getElementById('item-category').value,
         spec: document.getElementById('item-spec').value,
         unit: document.getElementById('item-unit').value,
-        qty: parseInt(document.getElementById('item-qty').value)
+        qty: parseInt(document.getElementById('item-qty').value),
+        min: parseInt(document.getElementById('item-min').value)
     };
     if (id) {
         window.fb.update(window.fb.ref(window.fb.db, 'inventory/' + id), data);
-        logAction(`Corrected details for ${data.name}`);
+        logAction(`Updated ${data.name} profile`, "System", "Adjustment");
     } else {
-        const newRef = window.fb.push(window.fb.ref(window.fb.db, 'inventory'));
-        window.fb.set(newRef, data);
-        logAction(`Added ${data.name} to stockroom`);
+        window.fb.set(window.fb.push(window.fb.ref(window.fb.db, 'inventory')), data);
+        logAction(`Initial Entry: ${data.name}`, "Stockroom", "New Stock");
     }
     showView('dashboard');
 });
@@ -139,49 +152,42 @@ document.getElementById('issue-form').addEventListener('submit', function(e) {
     e.preventDefault();
     const id = document.getElementById('issue-select').value;
     const qty = parseInt(document.getElementById('issue-qty').value);
+    const rec = document.getElementById('issue-recipient').value;
+    const purp = document.getElementById('issue-purpose').value;
     const item = inventory.find(i => i.id === id);
+    
     if (item && item.qty >= qty) {
         window.fb.update(window.fb.ref(window.fb.db, 'inventory/' + id), { qty: item.qty - qty });
-        logAction(`Issued ${qty} ${item.unit} of ${item.name} to ${document.getElementById('issue-recipient').value}`);
+        logAction(`Issued ${qty} ${item.unit} of ${item.name}`, rec, purp);
         this.reset();
         showView('dashboard');
-    } else { alert("Not enough stock!"); }
+    } else { alert("Insufficient Stock!"); }
 });
 
-function sortTable(key) {
-    sortDir[key] *= -1;
-    inventory.sort((a, b) => {
-        if(key === 'qty') return (a.qty - b.qty) * sortDir[key];
-        return a.name.localeCompare(b.name) * sortDir[key];
-    });
-    updateUI();
-}
-
 function downloadInventoryCSV() {
-    let csv = "Item Name,Specification,Quantity,Unit\n";
-    inventory.forEach(i => csv += `"${i.name}","${i.spec}",${i.qty},"${i.unit}"\n`);
-    downloadFile(csv, "TLES_Inventory_List");
+    let csv = "Item,Category,Spec,Qty,Unit\n";
+    inventory.forEach(i => csv += `"${i.name}","${i.category}","${i.spec}",${i.qty},"${i.unit}"\n`);
+    downloadFile(csv, "TLES_Stock");
 }
 
 function downloadLogCSV() {
-    let csv = "Time,Activity\n";
-    history.forEach(log => csv += `"${log.time}","${log.msg}"\n`);
-    downloadFile(csv, "TLES_Activity_Logs");
+    let csv = "Time,Action,Recipient,Purpose\n";
+    history.forEach(l => csv += `"${l.time}","${l.msg}","${l.recipient}","${l.purpose}"\n`);
+    downloadFile(csv, "TLES_Audit_Log");
 }
 
-function downloadFile(content, fileName) {
-    const blob = new Blob([content], { type: 'text/csv' });
+function downloadFile(csv, name) {
+    const blob = new Blob([csv], { type: 'text/csv' });
     const url = window.URL.createObjectURL(blob);
     const a = document.createElement('a');
-    a.href = url;
-    a.download = `${fileName}_${new Date().toLocaleDateString()}.csv`;
-    a.click();
+    a.href = url; a.download = `${name}_${new Date().toLocaleDateString()}.csv`; a.click();
 }
 
-function logAction(msg) {
+function logAction(msg, recipient = "Stockroom", purpose = "General") {
     const time = new Date().toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
-    window.fb.push(window.fb.ref(window.fb.db, 'history'), { time, msg });
+    window.fb.push(window.fb.ref(window.fb.db, 'history'), { time, msg, recipient, purpose });
 }
 
+document.getElementById('inventory-search').addEventListener('input', updateUI);
 init();
 showView('dashboard');
