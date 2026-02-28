@@ -99,3 +99,38 @@ button:active { transform: scale(0.96); }
 .form-group input:focus { border-color: var(--primary); box-shadow: 0 0 0 3px var(--primary-light); }
 .full { width: 100%; padding: 14px; margin-top: 1rem; }
 .back-btn { background: none; border: none; color: var(--accent); font-weight: 600; cursor: pointer; padding: 0; margin-bottom: 1rem; }
+
+/* ... Keep existing root and sidebar variables ... */
+
+.main-content { 
+    margin-left: 260px; 
+    flex: 1; 
+    padding: 2.5rem 3.5rem; /* Increased padding to separate from sidebar */
+    min-width: 0; /* Prevents overflow issues */
+}
+
+.content-header { 
+    margin-bottom: 2.5rem; 
+    padding-bottom: 1rem;
+    border-bottom: 1px solid var(--slate-200);
+}
+
+/* Sorting Indicators */
+th { cursor: pointer; user-select: none; position: relative; }
+th:hover { color: var(--primary); }
+th::after { content: ' ⇅'; opacity: 0.3; font-size: 0.8em; }
+
+/* Spacing and Badge Fixes */
+.btn-row { 
+    font-weight: 600; 
+    transition: all 0.2s ease;
+    border: 1px solid transparent;
+}
+.btn-row:hover { transform: translateY(-1px); box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+
+/* Footer spacing for Reset button */
+.footer-actions {
+    padding: 1.5rem 20px;
+    background: #fafafa;
+    border-top: 1px solid var(--slate-200);
+}
