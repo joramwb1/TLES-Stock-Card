@@ -57,138 +57,17 @@ function updateUI() {
         }
     });
 
-    // Update Activity Feed
+    // Detailed Sidebar Feed with Color Coding
     const feed = document.getElementById('activity-feed');
     if (feed) {
         feed.innerHTML = '';
-        [...history].reverse().slice(0, 10).forEach(log => {
-            feed.innerHTML += `<div class="feed-item"><span class="feed-time">${log.time}</span><strong>${log.msg}</strong></div>`;
-        });
-    }
+        [...history].reverse().slice(0, 15).forEach(log => {
+            const isIncrease = log.type === 'plus';
+            const qtyColor = isIncrease ? '#166534' : '#be123c'; // Green for plus, Red for minus
+            const qtySign = isIncrease ? '+' : '-';
 
-    // Update Audit Log Table
-    const histTbody = document.querySelector('#history-table tbody');
-    if(histTbody) {
-        histTbody.innerHTML = '';
-        [...history].reverse().forEach(log => {
-            histTbody.innerHTML += `<tr><td>${log.time}</td><td>${log.msg}</td><td>${log.recipient}</td><td>${log.purpose}</td></tr>`;
-        });
-    }
-
-    // Update Issue Selector
-    const sel = document.getElementById('issue-select');
-    if (sel) {
-        sel.innerHTML = '<option value="">-- Choose Item --</option>';
-        inventory.forEach(i => sel.innerHTML += `<option value="${i.id}">${i.name} (${i.qty} left)</option>`);
-    }
-}
-
-function sortTable(key) {
-    sortDir[key] *= -1;
-    inventory.sort((a, b) => {
-        if(key === 'qty') return (parseInt(a.qty) - parseInt(b.qty)) * sortDir[key];
-        return a.name.localeCompare(b.name) * sortDir[key];
-    });
-    updateUI();
-}
-
-function restockItem(id) {
-    const item = inventory.find(i => i.id === id);
-    const addQty = prompt(`Restock ${item.name}: Quantity to add?`);
-    if (addQty && !isNaN(addQty)) {
-        window.fb.update(window.fb.ref(window.fb.db, 'inventory/' + id), { qty: parseInt(item.qty) + parseInt(addQty) });
-        logAction(`Restocked ${addQty} units`, "Stockroom", "Delivery");
-    }
-}
-
-function returnItem(id) {
-    const item = inventory.find(i => i.id === id);
-    const retQty = prompt(`Return ${item.name}: Quantity returned?`);
-    if (retQty && !isNaN(retQty)) {
-        const teacher = prompt("Who returned this?");
-        const reason = prompt("Reason for return?");
-        window.fb.update(window.fb.ref(window.fb.db, 'inventory/' + id), { qty: parseInt(item.qty) + parseInt(retQty) });
-        logAction(`Returned ${retQty} units`, teacher, `Return: ${reason}`);
-    }
-}
-
-function editItem(id) {
-    const item = inventory.find(i => i.id === id);
-    showView('add-stock');
-    document.getElementById('edit-id').value = id;
-    document.getElementById('item-name').value = item.name;
-    document.getElementById('item-category').value = item.category;
-    document.getElementById('item-spec').value = item.spec;
-    document.getElementById('item-unit').value = item.unit;
-    document.getElementById('item-qty').value = item.qty;
-    document.getElementById('item-min').value = item.min;
-}
-
-function deleteItem(id) {
-    if (prompt("Staff Password:") === STAFF_PASS) {
-        window.fb.remove(window.fb.ref(window.fb.db, 'inventory/' + id));
-    }
-}
-
-function resetDatabase() {
-    if (prompt("Staff Password:") === STAFF_PASS && confirm("ERASE ALL DATA?")) {
-        window.fb.set(window.fb.ref(window.fb.db, 'inventory'), null);
-        window.fb.set(window.fb.ref(window.fb.db, 'history'), null);
-    }
-}
-
-document.getElementById('item-form').addEventListener('submit', function(e) {
-    e.preventDefault();
-    const id = document.getElementById('edit-id').value;
-    const data = {
-        name: document.getElementById('item-name').value,
-        category: document.getElementById('item-category').value,
-        spec: document.getElementById('item-spec').value,
-        unit: document.getElementById('item-unit').value,
-        qty: parseInt(document.getElementById('item-qty').value),
-        min: parseInt(document.getElementById('item-min').value)
-    };
-    if (id) {
-        window.fb.update(window.fb.ref(window.fb.db, 'inventory/' + id), data);
-    } else {
-        window.fb.set(window.fb.push(window.fb.ref(window.fb.db, 'inventory')), data);
-    }
-    showView('dashboard');
-});
-
-document.getElementById('issue-form').addEventListener('submit', function(e) {
-    e.preventDefault();
-    const id = document.getElementById('issue-select').value;
-    const qty = parseInt(document.getElementById('issue-qty').value);
-    const item = inventory.find(i => i.id === id);
-    if (item && item.qty >= qty) {
-        window.fb.update(window.fb.ref(window.fb.db, 'inventory/' + id), { qty: item.qty - qty });
-        logAction(`Issued ${qty} units of ${item.name}`, document.getElementById('issue-recipient').value, document.getElementById('issue-purpose').value);
-        this.reset();
-        showView('dashboard');
-    } else { alert("Insufficient Stock!"); }
-});
-
-function downloadInventoryCSV() {
-    let csv = "Item,Category,Qty\n";
-    inventory.forEach(i => csv += `"${i.name}","${i.category}",${i.qty}\n`);
-    const a = document.createElement('a');
-    a.href = URL.createObjectURL(new Blob([csv], {type:'text/csv'}));
-    a.download = 'TLES_Inventory.csv'; a.click();
-}
-
-function downloadLogCSV() {
-    let csv = "Time,Action,Recipient,Purpose\n";
-    history.forEach(l => csv += `"${l.time}","${l.msg}","${l.recipient}","${l.purpose}"\n`);
-    const a = document.createElement('a');
-    a.href = URL.createObjectURL(new Blob([csv], {type:'text/csv'}));
-    a.download = 'TLES_Audit_Log.csv'; a.click();
-}
-
-function logAction(msg, rec, purp) {
-    const time = new Date().toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
-    window.fb.push(window.fb.ref(window.fb.db, 'history'), { time, msg, recipient: rec, purpose: purp });
-}
-
-document.getElementById('inventory-search').addEventListener('input', updateUI);
-init();
+            feed.innerHTML += `
+                <div class="feed-item">
+                    <span class="feed-time">${log.time}</span>
+                    <div style="margin-top:4px;">
+                        <span style="color:${qtyColor}; font
