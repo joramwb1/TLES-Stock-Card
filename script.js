@@ -70,4 +70,137 @@ function updateUI() {
                 <div class="feed-item">
                     <span class="feed-time">${log.time}</span>
                     <div style="margin-top:4px;">
-                        <span style="color:${qtyColor}; font
+                        <span style="color:${qtyColor}; font-weight:800; font-size:1.1rem;">${qtySign}${log.amount}</span> 
+                        <strong>${log.itemName}</strong>
+                    </div>
+                    <div style="font-size:0.75rem; color:#64748b; margin-top:2px;">
+                        Person: <strong>${log.recipient}</strong><br>
+                        Purpose: ${log.purpose}
+                    </div>
+                </div>`;
+        });
+    }
+
+    const histTbody = document.querySelector('#history-table tbody');
+    if(histTbody) {
+        histTbody.innerHTML = '';
+        [...history].reverse().forEach(log => {
+            histTbody.innerHTML += `<tr><td>${log.time}</td><td>${log.msg}</td><td>${log.recipient}</td><td>${log.purpose}</td></tr>`;
+        });
+    }
+
+    const sel = document.getElementById('issue-select');
+    if (sel) {
+        sel.innerHTML = '<option value="">-- Choose Item --</option>';
+        inventory.forEach(i => sel.innerHTML += `<option value="${i.id}">${i.name} (${i.qty} left)</option>`);
+    }
+}
+
+function sortTable(key) {
+    sortDir[key] *= -1;
+    inventory.sort((a, b) => {
+        if(key === 'qty') return (parseInt(a.qty) - parseInt(b.qty)) * sortDir[key];
+        return a.name.localeCompare(b.name) * sortDir[key];
+    });
+    updateUI();
+}
+
+function restockItem(id) {
+    const item = inventory.find(i => i.id === id);
+    const addQty = prompt(`Restock ${item.name}: Quantity to add?`);
+    if (addQty && !isNaN(addQty)) {
+        window.fb.update(window.fb.ref(window.fb.db, 'inventory/' + id), { qty: parseInt(item.qty) + parseInt(addQty) });
+        logAction(`Stock In`, "Supply Office", "New Delivery", addQty, item.name, 'plus');
+    }
+}
+
+function returnItem(id) {
+    const item = inventory.find(i => i.id === id);
+    const retQty = prompt(`Return ${item.name}: Quantity returned?`);
+    if (retQty && !isNaN(retQty)) {
+        const teacher = prompt("Who returned this?");
+        const reason = prompt("Reason for return?");
+        window.fb.update(window.fb.ref(window.fb.db, 'inventory/' + id), { qty: parseInt(item.qty) + parseInt(retQty) });
+        logAction(`Stock Return`, teacher, reason, retQty, item.name, 'plus');
+    }
+}
+
+function editItem(id) {
+    const item = inventory.find(i => i.id === id);
+    showView('add-stock');
+    document.getElementById('edit-id').value = id;
+    document.getElementById('item-name').value = item.name;
+    document.getElementById('item-category').value = item.category;
+    document.getElementById('item-spec').value = item.spec;
+    document.getElementById('item-unit').value = item.unit;
+    document.getElementById('item-qty').value = item.qty;
+    document.getElementById('item-min').value = item.min;
+}
+
+function deleteItem(id) {
+    if (prompt("Staff Password:") === STAFF_PASS) {
+        window.fb.remove(window.fb.ref(window.fb.db, 'inventory/' + id));
+    }
+}
+
+function resetDatabase() {
+    if (prompt("Staff Password:") === STAFF_PASS && confirm("ERASE ALL DATA?")) {
+        window.fb.set(window.fb.ref(window.fb.db, 'inventory'), null);
+        window.fb.set(window.fb.ref(window.fb.db, 'history'), null);
+    }
+}
+
+document.getElementById('item-form').addEventListener('submit', function(e) {
+    e.preventDefault();
+    const id = document.getElementById('edit-id').value;
+    const name = document.getElementById('item-name').value;
+    const qty = parseInt(document.getElementById('item-qty').value);
+    
+    const data = {
+        name: name,
+        category: document.getElementById('item-category').value,
+        spec: document.getElementById('item-spec').value,
+        unit: document.getElementById('item-unit').value,
+        qty: qty,
+        min: parseInt(document.getElementById('item-min').value)
+    };
+
+    if (id) {
+        window.fb.update(window.fb.ref(window.fb.db, 'inventory/' + id), data);
+        // No log for simple profile updates as requested
+    } else {
+        window.fb.set(window.fb.push(window.fb.ref(window.fb.db, 'inventory')), data);
+        // Record log for NEW items
+        logAction(`Initial Stock`, "System", "Inventory Registry", qty, name, 'plus');
+    }
+    showView('dashboard');
+});
+
+document.getElementById('issue-form').addEventListener('submit', function(e) {
+    e.preventDefault();
+    const id = document.getElementById('issue-select').value;
+    const qty = parseInt(document.getElementById('issue-qty').value);
+    const item = inventory.find(i => i.id === id);
+    if (item && item.qty >= qty) {
+        window.fb.update(window.fb.ref(window.fb.db, 'inventory/' + id), { qty: item.qty - qty });
+        logAction(`Stock Out`, document.getElementById('issue-recipient').value, document.getElementById('issue-purpose').value, qty, item.name, 'minus');
+        this.reset();
+        showView('dashboard');
+    } else { alert("Insufficient Stock!"); }
+});
+
+function logAction(msg, rec, purp, amount, itemName, type) {
+    const time = new Date().toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+    window.fb.push(window.fb.ref(window.fb.db, 'history'), { 
+        time, 
+        msg, 
+        recipient: rec, 
+        purpose: purp, 
+        amount: amount || 0, 
+        itemName: itemName || "Unknown Item",
+        type: type // 'plus' or 'minus'
+    });
+}
+
+document.getElementById('inventory-search').addEventListener('input', updateUI);
+init();
