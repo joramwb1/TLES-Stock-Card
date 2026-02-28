@@ -1,128 +1,157 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>TLES Stock Manager</title>
-    <link rel="stylesheet" href="style.css">
-</head>
-<body>
-    <nav class="navbar">
-        <div class="logo">📦 TLES Stock Manager</div>
-        <div class="nav-links">
-            <button onclick="showView('dashboard')" class="nav-btn">Dashboard</button>
-            <button onclick="showView('history')" class="nav-btn">Detailed Logs</button>
-        </div>
-    </nav>
+let inventory = [];
+let history = [];
 
-    <div class="container">
-        <section id="view-dashboard" class="view">
-            <div class="header-row">
-                <h2>Inventory Dashboard</h2>
-                <div style="display: flex; gap: 10px;">
-                    <button onclick="showView('add-stock')" class="btn-primary">+ Add New Item</button>
-                    <button onclick="showView('issue-stock')" class="btn-issue">- Issue Stock</button>
-                </div>
-            </div>
+// Initialize Listeners
+function init() {
+    if (!window.fb) return setTimeout(init, 500);
 
-            <div class="stats-grid">
-                <div class="stat-card">
-                    <span class="label">TOTAL ITEM TYPES</span>
-                    <span id="stat-total-items" class="value">0</span>
-                </div>
-                <div class="stat-card">
-                    <span id="stat-total-units" class="value" style="float:right;">0</span>
-                    <span class="label">TOTAL UNITS ON HAND</span>
-                </div>
-            </div>
+    // Sync Inventory from Singapore DB
+    window.fb.onValue(window.fb.ref(window.fb.db, 'inventory'), (snap) => {
+        const data = snap.val();
+        inventory = data ? Object.keys(data).map(key => ({ id: key, ...data[key] })) : [];
+        updateUI();
+    });
 
-            <div class="main-layout">
-                <div class="inventory-content card">
-                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px;">
-                        <h3>Current Stocks</h3>
-                        <input type="text" id="inventory-search" placeholder="🔍 Search items..." style="padding:8px; border-radius:6px; border:1px solid #ddd; width:250px;">
-                    </div>
-                    
-                    <table id="inventory-table">
-                        <thead>
-                            <tr>
-                                <th>ITEM NAME</th>
-                                <th>SPECIFICATION</th>
-                                <th>STOCK LEVEL</th>
-                                <th>ACTION</th>
-                            </tr>
-                        </thead>
-                        <tbody></tbody>
-                    </table>
-                </div>
+    // Sync History from Singapore DB
+    window.fb.onValue(window.fb.ref(window.fb.db, 'history'), (snap) => {
+        const data = snap.val();
+        history = data ? Object.keys(data).map(key => ({ id: key, ...data[key] })) : [];
+        updateUI();
+    });
+}
 
-                <aside class="activity-sidebar card">
-                    <h3>Recent Activity</h3>
-                    <div id="activity-feed"></div>
-                </aside>
-            </div>
-        </section>
+function showView(viewId) {
+    document.querySelectorAll('.view').forEach(v => v.style.display = 'none');
+    const target = document.getElementById('view-' + viewId);
+    if(target) target.style.display = 'block';
+}
 
-        <section id="view-add-stock" class="view" style="display:none;">
-            <div class="header-row"><button onclick="showView('dashboard')" class="btn-back">← Back</button><h2 id="add-view-title">Add New Item</h2></div>
-            <div class="card">
-                <form id="item-form">
-                    <input type="hidden" id="edit-id" value="">
-                    <div class="input-row">
-                        <div class="input-group"><label>Item Name</label><input type="text" id="item-name" required></div>
-                        <div class="input-group"><label>Specification</label><input type="text" id="item-spec" required></div>
-                    </div>
-                    <div class="input-row">
-                        <div class="input-group"><label>Unit</label><input type="text" id="item-unit" required></div>
-                        <div class="input-group"><label>Quantity</label><input type="number" id="item-qty" required></div>
-                    </div>
-                    <button type="submit" class="btn-primary" style="width:100%">Save to Cloud</button>
-                </form>
-            </div>
-        </section>
+function updateUI() {
+    const searchTerm = document.getElementById('inventory-search')?.value.toLowerCase() || "";
+    const tbody = document.querySelector('#inventory-table tbody');
+    
+    // Safety check: if table body doesn't exist, stop
+    if (!tbody) return;
 
-        <section id="view-issue-stock" class="view" style="display:none;">
-            <div class="header-row"><button onclick="showView('dashboard')" class="btn-back">← Back</button><h2>Issue Stock</h2></div>
-            <div class="card">
-                <form id="issue-form">
-                    <div class="input-group"><label>Select Item</label><select id="issue-select" required></select></div>
-                    <div class="input-row">
-                        <div class="input-group"><label>Recipient</label><input type="text" id="issue-recipient" required></div>
-                        <div class="input-group"><label>Released By</label><input type="text" id="issue-releaser" required></div>
-                    </div>
-                    <div class="input-row">
-                        <div class="input-group"><label>Qty</label><input type="number" id="issue-qty" required></div>
-                        <div class="input-group"><label>Purpose</label><input type="text" id="issue-purpose" required></div>
-                    </div>
-                    <button type="submit" class="btn-issue" style="width:100%">Confirm Issue</button>
-                </form>
-            </div>
-        </section>
+    tbody.innerHTML = '';
+    let totalUnits = 0;
+    let filteredCount = 0;
 
-        <section id="view-history" class="view" style="display:none;">
-            <div class="header-row"><button onclick="showView('dashboard')" class="btn-back">← Back</button><h2>Detailed Logs</h2></div>
-            <div class="card"><table id="history-table"><thead><tr><th>Date</th><th>Activity</th></tr></thead><tbody></tbody></table></div>
-        </section>
-    </div>
+    inventory.forEach(item => {
+        const isMatch = item.name.toLowerCase().includes(searchTerm) || item.spec.toLowerCase().includes(searchTerm);
+        
+        if (isMatch) {
+            filteredCount++;
+            totalUnits += parseInt(item.qty || 0);
+            const isLow = item.qty < 10;
+            
+            tbody.innerHTML += `
+                <tr>
+                    <td><strong>${item.name}</strong></td>
+                    <td><small>${item.spec}</small></td>
+                    <td style="${isLow ? 'color:red; font-weight:bold;' : ''}">${item.qty} ${item.unit}</td>
+                    <td>
+                        <button class="btn-restock" onclick="quickRestock('${item.id}')">↻ Restock</button>
+                        <button onclick="deleteItem('${item.id}')" style="background:none; border:none; color:red; cursor:pointer; margin-left:10px;">✕</button>
+                    </td>
+                </tr>`;
+        }
+    });
 
-    <script type="module">
-        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
-        import { getDatabase, ref, set, push, onValue, update, remove } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
+    // Safety checks for stat boxes
+    const itemStat = document.getElementById('stat-total-items');
+    const unitStat = document.getElementById('stat-total-units');
+    if (itemStat) itemStat.textContent = filteredCount;
+    if (unitStat) unitStat.textContent = totalUnits;
 
-        const firebaseConfig = {
-            apiKey: "AIzaSyDSwIKdik8L3blJwDFw5TYWhJi2I_Vo9_I",
-            authDomain: "tles-se-and-stock-manager.firebaseapp.com",
-            projectId: "tles-se-and-stock-manager",
-            storageBucket: "tles-se-and-stock-manager.firebasestorage.app",
-            messagingSenderId: "183419608950",
-            appId: "1:183419608950:web:41f41a274465df34e7a457",
-            databaseURL: "https://tles-se-and-stock-manager-default-rtdb.asia-southeast1.firebasedatabase.app/"
-        };
+    // Safety check for Activity Feed
+    const feed = document.getElementById('activity-feed');
+    if (feed) {
+        feed.innerHTML = '';
+        [...history].reverse().slice(0, 10).forEach(log => {
+            feed.innerHTML += `
+                <div style="font-size:0.85rem; padding:8px 0; border-bottom:1px solid #eee;">
+                    <span style="color:#64748b; font-size:0.75rem; display:block;">${log.time}</span>
+                    ${log.msg}
+                </div>`;
+        });
+    }
 
-        const app = initializeApp(firebaseConfig);
-        const db = getDatabase(app);
-        window.fb = { db, ref, set, push, onValue, update, remove };
-    </script>
-    <script src="script.js"></script>
-</body>
-</html>
+    // Safety check for Issue Dropdown
+    const sel = document.getElementById('issue-select');
+    if (sel) {
+        sel.innerHTML = '<option value="">-- Select Item --</option>';
+        inventory.forEach(i => {
+            if (i.qty > 0) sel.innerHTML += `<option value="${i.id}">${i.name} (${i.spec})</option>`;
+        });
+    }
+}
+
+// Event Listeners
+document.getElementById('inventory-search')?.addEventListener('input', updateUI);
+
+document.getElementById('item-form')?.addEventListener('submit', function(e) {
+    e.preventDefault();
+    const id = document.getElementById('edit-id').value;
+    const data = {
+        name: document.getElementById('item-name').value,
+        spec: document.getElementById('item-spec').value,
+        unit: document.getElementById('item-unit').value,
+        qty: parseInt(document.getElementById('item-qty').value)
+    };
+
+    if (id) {
+        window.fb.update(window.fb.ref(window.fb.db, 'inventory/' + id), data);
+        logAction(`Updated ${data.name} details`);
+    } else {
+        const newRef = window.fb.push(window.fb.ref(window.fb.db, 'inventory'));
+        window.fb.set(newRef, data);
+        logAction(`Added ${data.qty} ${data.unit} of ${data.name}`);
+    }
+    this.reset();
+    showView('dashboard');
+});
+
+document.getElementById('issue-form')?.addEventListener('submit', function(e) {
+    e.preventDefault();
+    const id = document.getElementById('issue-select').value;
+    const qty = parseInt(document.getElementById('issue-qty').value);
+    const item = inventory.find(i => i.id === id);
+
+    if (item && item.qty >= qty) {
+        window.fb.update(window.fb.ref(window.fb.db, 'inventory/' + id), { qty: item.qty - qty });
+        logAction(`${document.getElementById('issue-releaser').value} issued ${qty} ${item.unit} to ${document.getElementById('issue-recipient').value}`);
+        this.reset();
+        showView('dashboard');
+    } else {
+        alert("Check quantity or item selection!");
+    }
+});
+
+function quickRestock(id) {
+    const item = inventory.find(i => i.id === id);
+    if (!item) return;
+    showView('add-stock');
+    document.getElementById('edit-id').value = id;
+    document.getElementById('item-name').value = item.name;
+    document.getElementById('item-spec').value = item.spec;
+    document.getElementById('item-unit').value = item.unit;
+    document.getElementById('item-qty').focus();
+    document.getElementById('add-view-title').textContent = "Restocking: " + item.name;
+}
+
+function deleteItem(id) {
+    if (confirm("Permanently delete this item?")) {
+        window.fb.remove(window.fb.ref(window.fb.db, 'inventory/' + id));
+    }
+}
+
+function logAction(msg) {
+    window.fb.push(window.fb.ref(window.fb.db, 'history'), {
+        time: new Date().toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }),
+        msg: msg
+    });
+}
+
+init();
+showView('dashboard');
