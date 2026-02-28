@@ -36,10 +36,6 @@ function updateUI() {
     if (!tbody) return;
     tbody.innerHTML = '';
 
-    if (inventory.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="4" style="text-align:center; padding:3rem; color:#94a3b8;">No items in stock. Click "+ New Item" to begin.</td></tr>';
-    }
-
     inventory.forEach(item => {
         const matchesCat = filterCat === "All" || item.category === filterCat;
         const matchesSearch = item.name.toLowerCase().includes(search) || item.spec.toLowerCase().includes(search);
@@ -50,11 +46,10 @@ function updateUI() {
                 <tr>
                     <td><strong>${item.name}</strong><br><small style="color:#64748b">${item.spec}</small></td>
                     <td><span class="cat-badge">${item.category || 'Others'}</span></td>
-                    <td>
-                        <span class="qty-pill ${isLow ? 'qty-low' : ''}">${item.qty} ${item.unit}</span>
-                    </td>
-                    <td style="text-align:right;">
+                    <td><span class="qty-pill ${isLow ? 'qty-low' : ''}">${item.qty} ${item.unit}</span></td>
+                    <td style="text-align:right; white-space:nowrap;">
                         <button class="btn-row btn-add" onclick="restockItem('${item.id}')">Add</button>
+                        <button class="btn-row btn-ret" onclick="returnItem('${item.id}')">Return</button>
                         <button class="btn-row btn-edit" onclick="editItem('${item.id}')">Edit</button>
                         <button class="btn-row btn-del" onclick="deleteItem('${item.id}')">✕</button>
                     </td>
@@ -62,18 +57,16 @@ function updateUI() {
         }
     });
 
+    // Update Activity Feed
     const feed = document.getElementById('activity-feed');
     if (feed) {
         feed.innerHTML = '';
-        [...history].reverse().slice(0, 15).forEach(log => {
-            feed.innerHTML += `<div class="feed-item">
-                <span class="feed-time">${log.time}</span>
-                <strong>${log.msg}</strong><br>
-                <small>${log.recipient}</small>
-            </div>`;
+        [...history].reverse().slice(0, 10).forEach(log => {
+            feed.innerHTML += `<div class="feed-item"><span class="feed-time">${log.time}</span><strong>${log.msg}</strong></div>`;
         });
     }
 
+    // Update Audit Log Table
     const histTbody = document.querySelector('#history-table tbody');
     if(histTbody) {
         histTbody.innerHTML = '';
@@ -82,20 +75,40 @@ function updateUI() {
         });
     }
 
+    // Update Issue Selector
     const sel = document.getElementById('issue-select');
     if (sel) {
-        sel.innerHTML = '<option value="">-- Search Item --</option>';
-        inventory.forEach(i => sel.innerHTML += `<option value="${i.id}">${i.name} (${i.qty} avail)</option>`);
+        sel.innerHTML = '<option value="">-- Choose Item --</option>';
+        inventory.forEach(i => sel.innerHTML += `<option value="${i.id}">${i.name} (${i.qty} left)</option>`);
     }
 }
 
-// Logic functions remain unchanged from previous stable core...
+function sortTable(key) {
+    sortDir[key] *= -1;
+    inventory.sort((a, b) => {
+        if(key === 'qty') return (parseInt(a.qty) - parseInt(b.qty)) * sortDir[key];
+        return a.name.localeCompare(b.name) * sortDir[key];
+    });
+    updateUI();
+}
+
 function restockItem(id) {
     const item = inventory.find(i => i.id === id);
-    const addQty = prompt(`Restock ${item.name}: Qty to add?`);
+    const addQty = prompt(`Restock ${item.name}: Quantity to add?`);
     if (addQty && !isNaN(addQty)) {
         window.fb.update(window.fb.ref(window.fb.db, 'inventory/' + id), { qty: parseInt(item.qty) + parseInt(addQty) });
-        logAction(`Added ${addQty} units`, "Stockroom Update", "Procurement");
+        logAction(`Restocked ${addQty} units`, "Stockroom", "Delivery");
+    }
+}
+
+function returnItem(id) {
+    const item = inventory.find(i => i.id === id);
+    const retQty = prompt(`Return ${item.name}: Quantity returned?`);
+    if (retQty && !isNaN(retQty)) {
+        const teacher = prompt("Who returned this?");
+        const reason = prompt("Reason for return?");
+        window.fb.update(window.fb.ref(window.fb.db, 'inventory/' + id), { qty: parseInt(item.qty) + parseInt(retQty) });
+        logAction(`Returned ${retQty} units`, teacher, `Return: ${reason}`);
     }
 }
 
@@ -118,7 +131,7 @@ function deleteItem(id) {
 }
 
 function resetDatabase() {
-    if (prompt("Staff Password:") === STAFF_PASS && confirm("Wipe all data?")) {
+    if (prompt("Staff Password:") === STAFF_PASS && confirm("ERASE ALL DATA?")) {
         window.fb.set(window.fb.ref(window.fb.db, 'inventory'), null);
         window.fb.set(window.fb.ref(window.fb.db, 'history'), null);
     }
@@ -150,7 +163,7 @@ document.getElementById('issue-form').addEventListener('submit', function(e) {
     const item = inventory.find(i => i.id === id);
     if (item && item.qty >= qty) {
         window.fb.update(window.fb.ref(window.fb.db, 'inventory/' + id), { qty: item.qty - qty });
-        logAction(`Issued ${qty} ${item.unit} of ${item.name}`, document.getElementById('issue-recipient').value, document.getElementById('issue-purpose').value);
+        logAction(`Issued ${qty} units of ${item.name}`, document.getElementById('issue-recipient').value, document.getElementById('issue-purpose').value);
         this.reset();
         showView('dashboard');
     } else { alert("Insufficient Stock!"); }
@@ -179,78 +192,3 @@ function logAction(msg, rec, purp) {
 
 document.getElementById('inventory-search').addEventListener('input', updateUI);
 init();
-
-// ... Keep init and showView as they were ...
-
-function updateUI() {
-    const tbody = document.querySelector('#inventory-table tbody');
-    const filterCat = document.getElementById('filter-category').value;
-    const search = document.getElementById('inventory-search').value.toLowerCase();
-    if (!tbody) return;
-    tbody.innerHTML = '';
-
-    inventory.forEach(item => {
-        const matchesCat = filterCat === "All" || item.category === filterCat;
-        const matchesSearch = item.name.toLowerCase().includes(search) || item.spec.toLowerCase().includes(search);
-        
-        if (matchesCat && matchesSearch) {
-            const isLow = parseInt(item.qty) <= parseInt(item.min || 5);
-            tbody.innerHTML += `
-                <tr>
-                    <td><strong>${item.name}</strong><br><small style="color:#64748b">${item.spec}</small></td>
-                    <td><span class="cat-badge">${item.category || 'Others'}</span></td>
-                    <td>
-                        <span class="qty-pill ${isLow ? 'qty-low' : ''}">${item.qty} ${item.unit}</span>
-                    </td>
-                    <td style="text-align:right; white-space:nowrap;">
-                        <button class="btn-row btn-add" onclick="restockItem('${item.id}')">Add</button>
-                        <button class="btn-row btn-edit" style="background:#fef9c3;color:#854d0e;" onclick="returnItem('${item.id}')">Return</button>
-                        <button class="btn-row btn-edit" onclick="editItem('${item.id}')">Edit</button>
-                        <button class="btn-row btn-del" onclick="deleteItem('${item.id}')">✕</button>
-                    </td>
-                </tr>`;
-        }
-    });
-
-    // Restore the sidebar feed and audit table logic as before...
-    updateActivityFeeds(); 
-}
-
-// RESTORED: Return to Stock function
-function returnItem(id) {
-    const item = inventory.find(i => i.id === id);
-    const retQty = prompt(`Return ${item.name}: How many units are being returned?`);
-    if (retQty && !isNaN(retQty)) {
-        const teacher = prompt("Name of Teacher returning the item:");
-        const reason = prompt("Reason for return (e.g., Unused, Wrong Spec):");
-        const newQty = parseInt(item.qty) + parseInt(retQty);
-        window.fb.update(window.fb.ref(window.fb.db, 'inventory/' + id), { qty: newQty });
-        logAction(`Returned ${retQty} units`, teacher, `Return: ${reason}`);
-    }
-}
-
-// RESTORED: Sort Function
-function sortTable(key) {
-    sortDir[key] *= -1;
-    inventory.sort((a, b) => {
-        if(key === 'qty') return (parseInt(a.qty) - parseInt(b.qty)) * sortDir[key];
-        const valA = (a[key] || "").toLowerCase();
-        const valB = (b[key] || "").toLowerCase();
-        return valA.localeCompare(valB) * sortDir[key];
-    });
-    updateUI();
-}
-
-// RESTORED: Reset Database (Modified to fit new UI)
-function resetDatabase() {
-    const pass = prompt("Enter Staff Password to WIPE ALL DATA:");
-    if (pass === STAFF_PASS) {
-        if(confirm("DANGER: This will permanently delete all inventory and all audit logs. Are you sure?")) {
-            window.fb.set(window.fb.ref(window.fb.db, 'inventory'), null);
-            window.fb.set(window.fb.ref(window.fb.db, 'history'), null);
-            alert("Database has been reset.");
-        }
-    } else if (pass !== null) { alert("Incorrect Password."); }
-}
-
-// ... Rest of the helper functions (logAction, downloadCSV, etc) ...
