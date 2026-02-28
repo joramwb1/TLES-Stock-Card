@@ -126,4 +126,38 @@
                     <button onclick="showView('dashboard')" class="back-btn">← Back</button>
                     <h2>Issue Item</h2>
                     <form id="issue-form">
-                        <div class="form-group"><label>Select Item
+                        <div class="form-group"><label>Select Item</label><select id="issue-select" required></select></div>
+                        <div class="form-row">
+                            <div class="form-group"><label>Recipient Name</label><input type="text" id="issue-recipient" required></div>
+                            <div class="form-group"><label>Authorized By</label><input type="text" id="issue-releaser" required></div>
+                        </div>
+                        <div class="form-row">
+                            <div class="form-group"><label>Quantity</label><input type="number" id="issue-qty" required></div>
+                            <div class="form-group"><label>Purpose</label><input type="text" id="issue-purpose" required></div>
+                        </div>
+                        <button type="submit" class="btn-accent full">Confirm Issuance</button>
+                    </form>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+        import { getDatabase, ref, set, push, onValue, update, remove } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
+        const firebaseConfig = {
+            apiKey: "AIzaSyDSwIKdik8L3blJwDFw5TYWhJi2I_Vo9_I",
+            authDomain: "tles-se-and-stock-manager.firebaseapp.com",
+            projectId: "tles-se-and-stock-manager",
+            storageBucket: "tles-se-and-stock-manager.firebasestorage.app",
+            messagingSenderId: "183419608950",
+            appId: "1:183419608950:web:41f41a274465df34e7a457",
+            databaseURL: "https://tles-se-and-stock-manager-default-rtdb.asia-southeast1.firebasedatabase.app/"
+        };
+        const app = initializeApp(firebaseConfig);
+        const db = getDatabase(app);
+        window.fb = { db, ref, set, push, onValue, update, remove };
+    </script>
+    <script src="script.js"></script>
+</body>
+</html>
