@@ -1,128 +1,40 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>TLES Stock Manager</title>
-    <link rel="stylesheet" href="style.css">
-</head>
-<body>
-    <nav class="navbar">
-        <div class="logo">📦 TLES Stock Manager</div>
-        <div class="nav-links">
-            <button onclick="showView('dashboard')" class="nav-btn">Dashboard</button>
-            <button onclick="showView('history')" class="nav-btn">Detailed Logs</button>
-        </div>
-    </nav>
+:root { --primary: #2563eb; --issue: #0ea5e9; --bg: #f8fafc; --text: #1e293b; --border: #e2e8f0; --danger: #ef4444; }
+body { font-family: 'Segoe UI', system-ui, sans-serif; background: var(--bg); color: var(--text); margin: 0; }
+.navbar { background: #0f172a; color: white; padding: 1rem 2rem; display: flex; justify-content: space-between; align-items: center; }
+.nav-btn { background: none; color: #94a3b8; border: none; cursor: pointer; padding: 0.5rem 1rem; font-weight: 500; }
+.nav-btn:hover { color: white; }
+.container { max-width: 1300px; margin: 2rem auto; padding: 0 1rem; }
+.header-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem; }
+.card { background: white; padding: 1.5rem; border-radius: 12px; border: 1px solid var(--border); box-shadow: 0 1px 3px rgba(0,0,0,0.05); }
 
-    <div class="container">
-        <section id="view-dashboard" class="view">
-            <div class="header-row">
-                <h2>Inventory Dashboard</h2>
-                <div style="display: flex; gap: 10px;">
-                    <button onclick="showView('add-stock')" class="btn-primary">+ Add New Item</button>
-                    <button onclick="showView('issue-stock')" class="btn-issue">- Issue Stock</button>
-                </div>
-            </div>
+/* Stats Bar */
+.stats-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; margin-bottom: 2rem; }
+.stat-card { background: white; padding: 1.5rem; border-radius: 12px; border-left: 6px solid var(--primary); box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); }
+.stat-card .value { font-size: 2rem; font-weight: 800; color: #0f172a; }
+.stat-card .label { font-size: 0.75rem; color: #64748b; text-transform: uppercase; letter-spacing: 0.05em; }
 
-            <div class="stats-grid">
-                <div class="stat-card">
-                    <span class="label">TOTAL ITEM TYPES</span>
-                    <span id="stat-total-items" class="value">0</span>
-                </div>
-                <div class="stat-card">
-                    <span id="stat-total-units" class="value" style="float:right;">0</span>
-                    <span class="label">TOTAL UNITS ON HAND</span>
-                </div>
-            </div>
+/* Main Sidebar Layout */
+.main-layout { display: flex; gap: 24px; align-items: flex-start; }
+.inventory-content { flex: 2.5; } /* Takes up the middle/left */
+.activity-sidebar { flex: 1; min-width: 300px; } /* Takes up the right side */
 
-            <div class="main-layout">
-                <div class="inventory-content card">
-                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px;">
-                        <h3>Current Stocks</h3>
-                        <input type="text" id="inventory-search" placeholder="🔍 Search items..." style="padding:8px; border-radius:6px; border:1px solid #ddd; width:250px;">
-                    </div>
-                    
-                    <table id="inventory-table">
-                        <thead>
-                            <tr>
-                                <th>ITEM NAME</th>
-                                <th>SPECIFICATION</th>
-                                <th>STOCK LEVEL</th>
-                                <th>ACTION</th>
-                            </tr>
-                        </thead>
-                        <tbody></tbody>
-                    </table>
-                </div>
+table { width: 100%; border-collapse: collapse; }
+th { text-align: left; padding: 12px; border-bottom: 2px solid var(--bg); color: #64748b; font-size: 0.75rem; }
+td { padding: 16px 12px; border-bottom: 1px solid var(--bg); }
 
-                <aside class="activity-sidebar card">
-                    <h3>Recent Activity</h3>
-                    <div id="activity-feed"></div>
-                </aside>
-            </div>
-        </section>
+/* Buttons */
+button { border: none; border-radius: 6px; cursor: pointer; font-weight: 600; padding: 10px 18px; transition: 0.2s; }
+.btn-primary { background: var(--primary); color: white; }
+.btn-issue { background: var(--issue); color: white; }
+.btn-restock { background: #f1f5f9; color: var(--primary); border: 1px solid var(--primary); font-size: 0.8rem; padding: 6px 12px; }
+.btn-restock:hover { background: var(--primary); color: white; }
+.btn-back { background: #f1f5f9; color: var(--text); }
 
-        <section id="view-add-stock" class="view" style="display:none;">
-            <div class="header-row"><button onclick="showView('dashboard')" class="btn-back">← Back</button><h2 id="add-view-title">Add New Item</h2></div>
-            <div class="card">
-                <form id="item-form">
-                    <input type="hidden" id="edit-id" value="">
-                    <div class="input-row">
-                        <div class="input-group"><label>Item Name</label><input type="text" id="item-name" required></div>
-                        <div class="input-group"><label>Specification</label><input type="text" id="item-spec" required></div>
-                    </div>
-                    <div class="input-row">
-                        <div class="input-group"><label>Unit</label><input type="text" id="item-unit" required></div>
-                        <div class="input-group"><label>Quantity</label><input type="number" id="item-qty" required></div>
-                    </div>
-                    <button type="submit" class="btn-primary" style="width:100%">Save to Cloud</button>
-                </form>
-            </div>
-        </section>
+/* Activity Items */
+.feed-item { font-size: 0.85rem; padding: 12px 0; border-bottom: 1px solid var(--bg); }
+.feed-time { font-size: 0.75rem; color: #94a3b8; display: block; margin-bottom: 2px; }
 
-        <section id="view-issue-stock" class="view" style="display:none;">
-            <div class="header-row"><button onclick="showView('dashboard')" class="btn-back">← Back</button><h2>Issue Stock</h2></div>
-            <div class="card">
-                <form id="issue-form">
-                    <div class="input-group"><label>Select Item</label><select id="issue-select" required></select></div>
-                    <div class="input-row">
-                        <div class="input-group"><label>Recipient</label><input type="text" id="issue-recipient" required></div>
-                        <div class="input-group"><label>Released By</label><input type="text" id="issue-releaser" required></div>
-                    </div>
-                    <div class="input-row">
-                        <div class="input-group"><label>Qty</label><input type="number" id="issue-qty" required></div>
-                        <div class="input-group"><label>Purpose</label><input type="text" id="issue-purpose" required></div>
-                    </div>
-                    <button type="submit" class="btn-issue" style="width:100%">Confirm Issue</button>
-                </form>
-            </div>
-        </section>
-
-        <section id="view-history" class="view" style="display:none;">
-            <div class="header-row"><button onclick="showView('dashboard')" class="btn-back">← Back</button><h2>Detailed Logs</h2></div>
-            <div class="card"><table id="history-table"><thead><tr><th>Date</th><th>Activity</th></tr></thead><tbody></tbody></table></div>
-        </section>
-    </div>
-
-    <script type="module">
-        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
-        import { getDatabase, ref, set, push, onValue, update, remove } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
-
-        const firebaseConfig = {
-            apiKey: "AIzaSyDSwIKdik8L3blJwDFw5TYWhJi2I_Vo9_I",
-            authDomain: "tles-se-and-stock-manager.firebaseapp.com",
-            projectId: "tles-se-and-stock-manager",
-            storageBucket: "tles-se-and-stock-manager.firebasestorage.app",
-            messagingSenderId: "183419608950",
-            appId: "1:183419608950:web:41f41a274465df34e7a457",
-            databaseURL: "https://tles-se-and-stock-manager-default-rtdb.asia-southeast1.firebasedatabase.app/"
-        };
-
-        const app = initializeApp(firebaseConfig);
-        const db = getDatabase(app);
-        window.fb = { db, ref, set, push, onValue, update, remove };
-    </script>
-    <script src="script.js"></script>
-</body>
-</html>
+/* Forms */
+.input-row { display: flex; gap: 15px; margin-bottom: 15px; }
+.input-group { flex: 1; display: flex; flex-direction: column; }
+input, select { padding: 10px; border: 1px solid var(--border); border-radius: 6px; margin-top: 5px; }
