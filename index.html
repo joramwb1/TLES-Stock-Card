@@ -18,7 +18,7 @@
         </div>
         <div class="nav-links">
             <button onclick="showView('dashboard')" class="nav-btn">Dashboard</button>
-            <button onclick="showView('history')" class="nav-btn">Logs & Reports</button>
+            <button onclick="showView('history')" class="nav-btn">Audit Logs</button>
         </div>
     </nav>
 
@@ -27,45 +27,36 @@
             <div class="header-row">
                 <h2>Stockroom Overview</h2>
                 <div class="action-buttons">
-                    <button onclick="downloadInventoryCSV()" class="btn-restock-sm" style="padding:10px 15px; margin-right:10px;">📥 Export Inventory CSV</button>
+                    <button onclick="downloadInventoryCSV()" class="btn-restock-sm" style="padding:10px; margin-right:5px;">📥 Export Stock</button>
                     <button onclick="showView('add-stock')" class="btn-primary">+ Add New Item</button>
                     <button onclick="showView('issue-stock')" class="btn-issue">- Issue Stock</button>
                 </div>
             </div>
 
-            <div class="stats-grid">
-                <div class="stat-card">
-                    <span class="label">Item Categories</span>
-                    <span id="stat-total-items" class="value">0</span>
-                </div>
-                <div class="stat-card">
-                    <span class="label">Total Units on Hand</span>
-                    <span id="stat-total-units" class="value">0</span>
-                </div>
-            </div>
-
             <div class="main-layout">
                 <div class="inventory-content card">
-                    <div class="table-header">
-                        <h3>Inventory List</h3>
-                        <input type="text" id="inventory-search" placeholder="🔍 Search...">
+                    <div class="table-header" style="display:flex; gap:10px; margin-bottom:15px;">
+                        <select id="filter-category" onchange="updateUI()" style="width:200px; margin:0;">
+                            <option value="All">All Categories</option>
+                            <option value="Office Supplies">Office Supplies</option>
+                            <option value="Janitorial">Janitorial</option>
+                            <option value="IT Equipment">IT Equipment</option>
+                            <option value="Others">Others</option>
+                        </select>
+                        <input type="text" id="inventory-search" placeholder="🔍 Search items..." style="margin:0;">
                     </div>
                     <table id="inventory-table">
                         <thead>
                             <tr>
                                 <th onclick="sortTable('name')">Item Name ⇅</th>
-                                <th>Specification</th>
+                                <th>Category</th>
                                 <th onclick="sortTable('qty')">Stock ⇅</th>
-                                <th>Manage Inventory</th>
+                                <th>Manage</th>
                             </tr>
                         </thead>
-                        <tbody>
-                            <tr><td colspan="4" style="text-align:center">📡 Connecting...</td></tr>
-                        </tbody>
+                        <tbody><tr><td colspan="4" style="text-align:center">📡 Connecting...</td></tr></tbody>
                     </table>
-                    <div style="margin-top: 20px; border-top: 1px solid #eee; padding-top: 10px;">
-                        <button onclick="resetDatabase()" style="background:none; color:#cbd5e1; font-size:0.7rem; border:none; cursor:pointer;">⚠ Reset All Data</button>
-                    </div>
+                    <div style="margin-top: 20px;"><button onclick="resetDatabase()" style="background:none; color:#cbd5e1; font-size:0.7rem; border:none; cursor:pointer;">⚠ Reset All Data</button></div>
                 </div>
 
                 <aside class="activity-sidebar card">
@@ -76,40 +67,56 @@
         </section>
 
         <section id="view-add-stock" class="view" style="display:none;">
-            <div class="header-row"><button onclick="showView('dashboard')" class="btn-back">← Back</button><h2 id="add-view-title">New Item Entry</h2></div>
+            <div class="header-row"><button onclick="showView('dashboard')" class="btn-back">← Back</button><h2 id="add-view-title">Item Profile</h2></div>
             <div class="card">
                 <form id="item-form">
                     <input type="hidden" id="edit-id" value="">
                     <div class="input-row">
                         <div class="input-group"><label>Item Name</label><input type="text" id="item-name" required></div>
-                        <div class="input-group"><label>Specification</label><input type="text" id="item-spec" required></div>
+                        <div class="input-group"><label>Category</label>
+                            <select id="item-category">
+                                <option value="Office Supplies">Office Supplies</option>
+                                <option value="Janitorial">Janitorial</option>
+                                <option value="IT Equipment">IT Equipment</option>
+                                <option value="Others">Others</option>
+                            </select>
+                        </div>
                     </div>
                     <div class="input-row">
-                        <div class="input-group"><label>Unit (UOM)</label><input type="text" id="item-unit" required></div>
-                        <div class="input-group"><label>Quantity</label><input type="number" id="item-qty" required></div>
+                        <div class="input-group"><label>Specification</label><input type="text" id="item-spec" required></div>
+                        <div class="input-group"><label>Unit (UOM)</label><input type="text" id="item-unit" placeholder="Reams/Pcs" required></div>
                     </div>
-                    <button type="submit" class="btn-primary" style="width:100%">Save Item Details</button>
+                    <div class="input-row">
+                        <div class="input-group"><label>Current Quantity</label><input type="number" id="item-qty" required></div>
+                        <div class="input-group"><label>Low Stock Alert Level</label><input type="number" id="item-min" value="5" required></div>
+                    </div>
+                    <button type="submit" class="btn-primary" style="width:100%">Save Item</button>
                 </form>
             </div>
         </section>
 
         <section id="view-history" class="view" style="display:none;">
-            <div class="header-row"><h2>Activity Logs</h2><button onclick="downloadLogCSV()" class="btn-primary">📊 Export Log CSV</button></div>
-            <div class="card"><table id="history-table"><thead><tr><th>Time</th><th>Details</th></tr></thead><tbody></tbody></table></div>
+            <div class="header-row"><h2>Audit Logs</h2><button onclick="downloadLogCSV()" class="btn-primary">📊 Export Detailed CSV</button></div>
+            <div class="card" style="overflow-x:auto;">
+                <table id="history-table">
+                    <thead><tr><th>Time</th><th>Action</th><th>Recipient</th><th>Purpose</th></tr></thead>
+                    <tbody></tbody>
+                </table>
+            </div>
         </section>
 
         <section id="view-issue-stock" class="view" style="display:none;">
-            <div class="header-row"><button onclick="showView('dashboard')" class="btn-back">← Back</button><h2>Release Stock</h2></div>
+            <div class="header-row"><button onclick="showView('dashboard')" class="btn-back">← Back</button><h2>Issue Stock</h2></div>
             <div class="card">
                 <form id="issue-form">
                     <div class="input-group"><label>Item</label><select id="issue-select" required></select></div>
                     <div class="input-row">
-                        <div class="input-group"><label>Recipient</label><input type="text" id="issue-recipient" required></div>
+                        <div class="input-group"><label>Recipient Name</label><input type="text" id="issue-recipient" required></div>
                         <div class="input-group"><label>Issued By</label><input type="text" id="issue-releaser" required></div>
                     </div>
                     <div class="input-row">
                         <div class="input-group"><label>Quantity</label><input type="number" id="issue-qty" required></div>
-                        <div class="input-group"><label>Purpose</label><input type="text" id="issue-purpose" required></div>
+                        <div class="input-group"><label>Purpose/Project</label><input type="text" id="issue-purpose" required></div>
                     </div>
                     <button type="submit" class="btn-issue" style="width:100%">Confirm Issuance</button>
                 </form>
