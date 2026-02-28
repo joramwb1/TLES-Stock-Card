@@ -3,8 +3,9 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Tanzang Luma ES | Stock Manager</title>
-    <link rel="icon" href="data:,"> <link rel="stylesheet" href="style.css">
+    <title>TLES Stock Manager</title>
+    <link rel="icon" href="data:,">
+    <link rel="stylesheet" href="style.css">
 </head>
 <body>
     <nav class="navbar">
@@ -17,7 +18,7 @@
         </div>
         <div class="nav-links">
             <button onclick="showView('dashboard')" class="nav-btn">Dashboard</button>
-            <button onclick="showView('history')" class="nav-btn">Full Logs</button>
+            <button onclick="showView('history')" class="nav-btn">Logs & Reports</button>
         </div>
     </nav>
 
@@ -33,7 +34,7 @@
 
             <div class="stats-grid">
                 <div class="stat-card">
-                    <span class="label">Total Item Types</span>
+                    <span class="label">Item Categories</span>
                     <span id="stat-total-items" class="value">0</span>
                 </div>
                 <div class="stat-card">
@@ -45,20 +46,20 @@
             <div class="main-layout">
                 <div class="inventory-content card">
                     <div class="table-controls">
-                        <h3>Current Inventory</h3>
-                        <input type="text" id="inventory-search" placeholder="🔍 Search by name or spec...">
+                        <h3>Inventory List</h3>
+                        <input type="text" id="inventory-search" placeholder="🔍 Search...">
                     </div>
                     <table id="inventory-table">
                         <thead>
                             <tr>
-                                <th>Item Name</th>
+                                <th onclick="sortTable('name')" style="cursor:pointer">Item Name ⇅</th>
                                 <th>Specification</th>
-                                <th>Quantity</th>
-                                <th>Action</th>
+                                <th onclick="sortTable('qty')" style="cursor:pointer">Stock ⇅</th>
+                                <th>Actions</th>
                             </tr>
                         </thead>
                         <tbody>
-                            <tr><td colspan="4" style="text-align:center">📡 Connecting to TLES Cloud...</td></tr>
+                            <tr><td colspan="4" style="text-align:center">📡 Connecting...</td></tr>
                         </tbody>
                     </table>
                 </div>
@@ -76,15 +77,28 @@
                 <form id="item-form">
                     <input type="hidden" id="edit-id" value="">
                     <div class="input-row">
-                        <div class="input-group"><label>Item Name</label><input type="text" id="item-name" placeholder="e.g. Bond Paper" required></div>
-                        <div class="input-group"><label>Specification</label><input type="text" id="item-spec" placeholder="e.g. A4, 70gsm" required></div>
+                        <div class="input-group"><label>Item Name</label><input type="text" id="item-name" required></div>
+                        <div class="input-group"><label>Specification</label><input type="text" id="item-spec" required></div>
                     </div>
                     <div class="input-row">
-                        <div class="input-group"><label>Unit</label><input type="text" id="item-unit" placeholder="e.g. Reams" required></div>
+                        <div class="input-group"><label>Unit</label><input type="text" id="item-unit" required></div>
                         <div class="input-group"><label>Quantity</label><input type="number" id="item-qty" required></div>
                     </div>
-                    <button type="submit" class="btn-primary" style="width:100%">Save to Cloud</button>
+                    <button type="submit" class="btn-primary" style="width:100%">Save Changes</button>
                 </form>
+            </div>
+        </section>
+
+        <section id="view-history" class="view" style="display:none;">
+            <div class="header-row">
+                <h2>Activity Logs</h2>
+                <button onclick="downloadCSV()" class="btn-primary">📊 Generate CSV Report</button>
+            </div>
+            <div class="card">
+                <table id="history-table">
+                    <thead><tr><th>Date/Time</th><th>Action Logged</th></tr></thead>
+                    <tbody></tbody>
+                </table>
             </div>
         </section>
 
@@ -94,28 +108,22 @@
                 <form id="issue-form">
                     <div class="input-group"><label>Select Item</label><select id="issue-select" required></select></div>
                     <div class="input-row">
-                        <div class="input-group"><label>Recipient (Teacher/Office)</label><input type="text" id="issue-recipient" required></div>
+                        <div class="input-group"><label>Recipient</label><input type="text" id="issue-recipient" required></div>
                         <div class="input-group"><label>Released By</label><input type="text" id="issue-releaser" required></div>
                     </div>
                     <div class="input-row">
-                        <div class="input-group"><label>Qty to Release</label><input type="number" id="issue-qty" required></div>
+                        <div class="input-group"><label>Qty</label><input type="number" id="issue-qty" required></div>
                         <div class="input-group"><label>Purpose</label><input type="text" id="issue-purpose" required></div>
                     </div>
                     <button type="submit" class="btn-issue" style="width:100%">Confirm Release</button>
                 </form>
             </div>
         </section>
-
-        <section id="view-history" class="view" style="display:none;">
-            <div class="header-row"><button onclick="showView('dashboard')" class="btn-back">← Back</button><h2>Detailed Activity Logs</h2></div>
-            <div class="card"><table id="history-table"><thead><tr><th>Date/Time</th><th>Action Logged</th></tr></thead><tbody></tbody></table></div>
-        </section>
     </div>
 
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
         import { getDatabase, ref, set, push, onValue, update, remove } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
-
         const firebaseConfig = {
             apiKey: "AIzaSyDSwIKdik8L3blJwDFw5TYWhJi2I_Vo9_I",
             authDomain: "tles-se-and-stock-manager.firebaseapp.com",
@@ -125,7 +133,6 @@
             appId: "1:183419608950:web:41f41a274465df34e7a457",
             databaseURL: "https://tles-se-and-stock-manager-default-rtdb.asia-southeast1.firebasedatabase.app/"
         };
-
         const app = initializeApp(firebaseConfig);
         const db = getDatabase(app);
         window.fb = { db, ref, set, push, onValue, update, remove };
