@@ -38,7 +38,10 @@ function updateUI() {
 
     inventory.forEach(item => {
         const matchesCat = filterCat === "All" || item.category === filterCat;
-        const matchesSearch = item.name.toLowerCase().includes(search) || item.spec.toLowerCase().includes(search);
+        // Smart Search: Checks Name, Specs, and Category
+        const matchesSearch = item.name.toLowerCase().includes(search) || 
+                             item.spec.toLowerCase().includes(search) ||
+                             (item.category && item.category.toLowerCase().includes(search));
         
         if (matchesCat && matchesSearch) {
             const isLow = parseInt(item.qty) <= parseInt(item.min || 5);
@@ -57,7 +60,6 @@ function updateUI() {
         }
     });
 
-    // Detailed Sidebar Feed with "Name (Spec)" formatting
     const feed = document.getElementById('activity-feed');
     if (feed) {
         feed.innerHTML = '';
@@ -89,7 +91,6 @@ function updateUI() {
         });
     }
 
-    // Update Issue Selector with "Name (Spec)" format
     const sel = document.getElementById('issue-select');
     if (sel) {
         sel.innerHTML = '<option value="">-- Choose Item --</option>';
@@ -99,6 +100,7 @@ function updateUI() {
     }
 }
 
+// ... Sort, Restock, Return, Edit, Delete functions remain the same as previous stable version ...
 function sortTable(key) {
     sortDir[key] *= -1;
     inventory.sort((a, b) => {
@@ -191,18 +193,44 @@ document.getElementById('issue-form').addEventListener('submit', function(e) {
     } else { alert("Insufficient Stock!"); }
 });
 
+// IMPROVED DOWNLOAD LOGIC
+function downloadInventoryCSV() {
+    let csv = "\uFEFFItem,Category,Specification,Quantity,Unit\n"; // Added BOM for Excel compatibility
+    inventory.forEach(i => {
+        csv += `"${i.name}","${i.category}","${i.spec}",${i.qty},"${i.unit}"\n`;
+    });
+    triggerDownload(csv, `TLES_Inventory_${new Date().toISOString().slice(0,10)}.csv`);
+}
+
+function downloadLogCSV() {
+    let csv = "\uFEFFTimestamp,Action,Item,Recipient,Purpose,Amount\n";
+    history.forEach(l => {
+        csv += `"${l.time}","${l.msg}","${l.fullItemLabel}","${l.recipient}","${l.purpose}","${l.amount}"\n`;
+    });
+    triggerDownload(csv, `TLES_Audit_Logs_${new Date().toISOString().slice(0,10)}.csv`);
+}
+
+function triggerDownload(csvContent, fileName) {
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement("a");
+    if (link.download !== undefined) {
+        const url = URL.createObjectURL(blob);
+        link.setAttribute("href", url);
+        link.setAttribute("download", fileName);
+        link.style.visibility = 'hidden';
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(url); // Clean up memory
+    }
+}
+
 function logAction(msg, rec, purp, amount, itemObj, type) {
     const time = new Date().toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
     const fullItemLabel = `${itemObj.name} (${itemObj.spec})`;
     
     window.fb.push(window.fb.ref(window.fb.db, 'history'), { 
-        time, 
-        msg, 
-        recipient: rec, 
-        purpose: purp, 
-        amount: amount || 0, 
-        fullItemLabel: fullItemLabel,
-        type: type 
+        time, msg, recipient: rec, purpose: purp, amount, fullItemLabel, type 
     });
 }
 
